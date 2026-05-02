@@ -163,14 +163,14 @@ export default function MedecinInterface() {
   useEffect(() => {
     if (!authenticated) return;
     loadData();
-    const interval = setInterval(loadData, 5000);
+    const interval = setInterval(loadData, 180000);
     return () => clearInterval(interval);
   }, [loadData, authenticated]);
 
   useEffect(() => {
     if (!showBilan || !authenticated) return;
     loadBilan();
-    const interval = setInterval(loadBilan, 30000);
+    const interval = setInterval(loadBilan, 180000);
     return () => clearInterval(interval);
   }, [showBilan, loadBilan, authenticated]);
 
@@ -342,7 +342,7 @@ export default function MedecinInterface() {
                 Bilan du {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </h2>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400">Actualisation auto. toutes les 30s</span>
+                <span className="text-xs text-slate-400">Actualisation auto. toutes les 3 min</span>
                 <button onClick={loadBilan} className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Actualiser maintenant">
                   <RefreshCw className="w-4 h-4" />
                 </button>

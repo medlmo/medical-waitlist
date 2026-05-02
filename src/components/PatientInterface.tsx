@@ -10,7 +10,7 @@ export default function PatientInterface() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(180);
   const codeRef = useRef(code);
   const telephoneRef = useRef(telephone);
 
@@ -25,7 +25,7 @@ export default function PatientInterface() {
       const result = await patientsApi.verifyPatient(codeRef.current, telephoneRef.current);
       setCheckResult(result);
       setLastRefresh(new Date());
-      setCountdown(5);
+      setCountdown(180);
     } catch (err) {
       if (!silent) {
         setError(getApiErrorMessage(err, 'Patient non trouvé. Vérifiez votre code et numéro de téléphone.'));
@@ -46,9 +46,9 @@ export default function PatientInterface() {
     const statut = checkResult.patient.statut;
     if (statut === 'termine' || statut === 'annule') return;
 
-    const interval = setInterval(() => refreshPosition(true), 5000);
+    const interval = setInterval(() => refreshPosition(true), 180000);
     const countdownInterval = setInterval(() => {
-      setCountdown((c) => (c <= 1 ? 5 : c - 1));
+      setCountdown((c) => (c <= 1 ? 180 : c - 1));
     }, 1000);
 
     return () => {
