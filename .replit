@@ -9,8 +9,10 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-PORT = "3001"
 DOCTOR_PIN = "1234"
+
+[userenv.development]
+PORT = "3001"
 
 [workflows]
 runButton = "Project"
@@ -62,5 +64,5 @@ externalPort = 80
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["bash", "-c", "node backend/server.js & npm run dev -- --port 5000"]
-build = ["bash", "-c", "npm install && cd backend && npm install && cd .."]
+run = ["node", "backend/server.js"]
+build = ["bash", "-c", "npm install && cd backend && npm install && cd .. && npm run build"]

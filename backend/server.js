@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 const { initDB } = require('./db');
 const patientRoutes = require('./routes/patients');
 const authRoutes = require('./routes/auth');
@@ -35,9 +37,17 @@ app.use('/api/auth', authRoutes);
 app.use('/api', patientRoutes);
 app.use(errorMiddleware);
 
+const distPath = path.join(__dirname, '../dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
 const startServer = async () => {
   await initDB();
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`Serveur demarre sur le port ${PORT}`);
   });
 };
