@@ -52,4 +52,12 @@ router.get(
   })
 );
 
+router.get(
+  '/bilan',
+  asyncHandler(async (req, res) => {
+    const bilan = await service.getDailyBilan();
+    res.json({ success: true, bilan });
+  })
+);
+
 module.exports = router;

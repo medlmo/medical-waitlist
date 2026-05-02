@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { UserPlus, Phone, Calendar, User, Trash2, CheckCircle, RotateCcw, Users, Clock } from 'lucide-react';
+import { UserPlus, Phone, Calendar, User, Trash2, CheckCircle, RotateCcw, Users, Clock, BarChart3, UserCheck, RefreshCw } from 'lucide-react';
 import { getApiErrorMessage } from '../api/http';
-import { patientsApi, type Patient, type Stats } from '../api/patients';
+import { patientsApi, type Patient, type Stats, type Bilan } from '../api/patients';
 
 export default function MedecinInterface() {
   const [formData, setFormData] = useState({
@@ -16,6 +16,8 @@ export default function MedecinInterface() {
   const [enConsult, setEnConsult] = useState<Patient[]>([]);
   const [historique, setHistorique] = useState<Patient[]>([]);
   const [stats, setStats] = useState<Stats>({ en_attente: 0, en_consultation: 0, traites: 0 });
+  const [bilan, setBilan] = useState<Bilan | null>(null);
+  const [showBilan, setShowBilan] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackType, setFeedbackType] = useState<'error' | 'success' | ''>('');
 
@@ -32,11 +34,27 @@ export default function MedecinInterface() {
     }
   }, []);
 
+  const loadBilan = useCallback(async () => {
+    try {
+      const data = await patientsApi.getBilan();
+      setBilan(data);
+    } catch (error) {
+      setFeedbackType('error');
+      setFeedbackMessage(getApiErrorMessage(error, 'Impossible de charger le bilan.'));
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000); // Rafraîchir toutes les 5 secondes
+    const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
   }, [loadData]);
+
+  useEffect(() => {
+    if (showBilan) {
+      loadBilan();
+    }
+  }, [showBilan, loadBilan]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,6 +232,90 @@ export default function MedecinInterface() {
             </div>
           )}
         </div>
+
+        {/* Bouton Bilan Journalier */}
+        <div className="mb-6 flex justify-end">
+          <button
+            onClick={() => setShowBilan((v) => !v)}
+            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow transition-colors"
+          >
+            <BarChart3 className="w-5 h-5" />
+            {showBilan ? 'Masquer le bilan' : 'Bilan journalier'}
+          </button>
+        </div>
+
+        {/* Bilan Journalier */}
+        {showBilan && (
+          <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border-l-4 border-indigo-500">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-indigo-600" />
+                Bilan du {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </h2>
+              <button
+                onClick={loadBilan}
+                className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                title="Actualiser"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+
+            {bilan ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="bg-slate-50 rounded-xl p-4 text-center">
+                  <div className="text-3xl font-bold text-slate-700">{bilan.total_patients}</div>
+                  <div className="text-xs text-slate-500 mt-1 font-medium">Total patients</div>
+                </div>
+
+                <div className="bg-green-50 rounded-xl p-4 text-center">
+                  <div className="text-3xl font-bold text-green-600">{bilan.termines}</div>
+                  <div className="text-xs text-slate-500 mt-1 font-medium">Consultations terminées</div>
+                </div>
+
+                <div className="bg-red-50 rounded-xl p-4 text-center">
+                  <div className="text-3xl font-bold text-red-400">{bilan.annules}</div>
+                  <div className="text-xs text-slate-500 mt-1 font-medium">Annulés</div>
+                </div>
+
+                <div className="bg-blue-50 rounded-xl p-4 text-center">
+                  <div className="text-3xl font-bold text-blue-600">{bilan.premier_contact}</div>
+                  <div className="flex items-center justify-center gap-1 text-xs text-slate-500 mt-1 font-medium">
+                    <UserCheck className="w-3 h-3" />
+                    Premier contact
+                  </div>
+                </div>
+
+                <div className="bg-purple-50 rounded-xl p-4 text-center">
+                  <div className="text-3xl font-bold text-purple-600">{bilan.controle}</div>
+                  <div className="flex items-center justify-center gap-1 text-xs text-slate-500 mt-1 font-medium">
+                    <RefreshCw className="w-3 h-3" />
+                    Contrôles
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-6 text-slate-400">Chargement du bilan...</div>
+            )}
+
+            {bilan && (
+              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-3">
+                <Clock className="w-5 h-5 text-indigo-500" />
+                <span className="text-slate-700 font-medium">
+                  Durée moyenne de consultation :
+                </span>
+                <span className="text-xl font-bold text-indigo-600">
+                  {bilan.duree_moyenne_minutes !== null
+                    ? `${bilan.duree_moyenne_minutes} min`
+                    : '—'}
+                </span>
+                {bilan.duree_moyenne_minutes === null && (
+                  <span className="text-xs text-slate-400">(aucune consultation terminée)</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Statistiques */}
         <div className="grid grid-cols-3 gap-4 mb-8">

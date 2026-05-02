@@ -106,6 +106,8 @@ const verifyPatient = async ({ code, telephone }) => {
 
 const getStats = async () => repository.getStatsForToday();
 
+const getDailyBilan = async () => repository.getDailyBilan();
+
 module.exports = {
   addPatient,
   getDashboardData,
@@ -113,4 +115,5 @@ module.exports = {
   updateStatus,
   verifyPatient,
   getStats,
+  getDailyBilan,
 };

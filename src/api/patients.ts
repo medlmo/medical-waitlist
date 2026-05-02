@@ -20,6 +20,15 @@ export interface Stats {
   traites: number;
 }
 
+export interface Bilan {
+  total_patients: number;
+  termines: number;
+  annules: number;
+  premier_contact: number;
+  controle: number;
+  duree_moyenne_minutes: number | null;
+}
+
 export interface DashboardData {
   enAttente: Patient[];
   enConsultation: Patient[];
@@ -70,5 +79,10 @@ export const patientsApi = {
   async verifyPatient(code: string, telephone: string) {
     const response = await apiClient.post('/patients/verifier', { code, telephone });
     return response.data as VerificationResult;
+  },
+
+  async getBilan() {
+    const response = await apiClient.get('/bilan');
+    return response.data.bilan as Bilan;
   },
 };

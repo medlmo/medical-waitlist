@@ -113,6 +113,26 @@ const getStatsForToday = async () => {
   return result.rows[0];
 };
 
+const getDailyBilan = async () => {
+  const result = await pool.query(
+    `SELECT
+      COUNT(*) as total_patients,
+      COUNT(*) FILTER (WHERE statut = 'termine') as termines,
+      COUNT(*) FILTER (WHERE statut = 'annule') as annules,
+      COUNT(*) FILTER (WHERE motif = 'premier_contact') as premier_contact,
+      COUNT(*) FILTER (WHERE motif = 'controle') as controle,
+      ROUND(
+        AVG(
+          EXTRACT(EPOCH FROM (heure_fin - heure_appel)) / 60
+        ) FILTER (WHERE statut = 'termine' AND heure_appel IS NOT NULL AND heure_fin IS NOT NULL)
+      , 1) as duree_moyenne_minutes
+     FROM patients
+     WHERE DATE(heure_arrivee) = CURRENT_DATE`
+  );
+
+  return result.rows[0];
+};
+
 module.exports = {
   findByCode,
   createPatient,
@@ -124,4 +144,5 @@ module.exports = {
   findPatientForVerification,
   countWaitingBefore,
   getStatsForToday,
+  getDailyBilan,
 };
