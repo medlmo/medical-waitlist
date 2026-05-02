@@ -19,13 +19,6 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-export const authApi = {
-  async login(pin: string): Promise<string> {
-    const response = await axios.post('/api/auth/login', { pin });
-    return response.data.token as string;
-  },
-};
-
 export const getApiErrorMessage = (
   error: unknown,
   fallback = 'Une erreur est survenue. Veuillez réessayer.'

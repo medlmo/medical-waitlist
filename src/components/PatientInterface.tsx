@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, Users, RefreshCw } from 'lucide-react';
 import { getApiErrorMessage } from '../api/http';
 import { patientsApi, type VerificationResult } from '../api/patients';
 
 export default function PatientInterface() {
+  const { cabinet_code } = useParams<{ cabinet_code?: string }>();
+
   const [code, setCode] = useState('');
   const [telephone, setTelephone] = useState('');
   const [checkResult, setCheckResult] = useState<VerificationResult | null>(null);
@@ -13,16 +16,18 @@ export default function PatientInterface() {
   const [countdown, setCountdown] = useState(180);
   const codeRef = useRef(code);
   const telephoneRef = useRef(telephone);
+  const cabinetCodeRef = useRef(cabinet_code);
 
   useEffect(() => { codeRef.current = code; }, [code]);
   useEffect(() => { telephoneRef.current = telephone; }, [telephone]);
+  useEffect(() => { cabinetCodeRef.current = cabinet_code; }, [cabinet_code]);
 
   const refreshPosition = useCallback(async (silent = false) => {
-    if (!codeRef.current || !telephoneRef.current) return;
+    if (!codeRef.current || !telephoneRef.current || !cabinetCodeRef.current) return;
     if (!silent) setLoading(true);
     setError('');
     try {
-      const result = await patientsApi.verifyPatient(codeRef.current, telephoneRef.current);
+      const result = await patientsApi.verifyPatient(codeRef.current, telephoneRef.current, cabinetCodeRef.current);
       setCheckResult(result);
       setLastRefresh(new Date());
       setCountdown(180);
@@ -57,6 +62,22 @@ export default function PatientInterface() {
     };
   }, [checkResult, refreshPosition]);
 
+  if (!cabinet_code) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-amber-500" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Lien invalide</h2>
+          <p className="text-slate-600">
+            Veuillez utiliser le lien fourni par votre cabinet médical pour accéder à votre file d'attente.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const getStatusMessage = () => {
     if (!checkResult) return null;
     const { patient, position } = checkResult;
@@ -83,8 +104,13 @@ export default function PatientInterface() {
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100">
       <div className="container mx-auto px-4 py-8 max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">📱 Suivi File d'attente</h1>
-          <p className="text-slate-600">Suivez votre position en temps réel</p>
+          <h1 className="text-3xl font-bold text-slate-800 mb-1">📱 Suivi File d'attente</h1>
+          {checkResult?.cabinet && (
+            <p className="text-emerald-700 font-medium">{checkResult.cabinet.nom_cabinet}</p>
+          )}
+          {!checkResult && (
+            <p className="text-slate-600 mt-1">Suivez votre position en temps réel</p>
+          )}
         </div>
 
         {!checkResult && (
@@ -172,13 +198,7 @@ export default function PatientInterface() {
             )}
 
             <button
-              onClick={() => {
-                setCheckResult(null);
-                setCode('');
-                setTelephone('');
-                setError('');
-                setLastRefresh(null);
-              }}
+              onClick={() => { setCheckResult(null); setCode(''); setTelephone(''); setError(''); setLastRefresh(null); }}
               className="w-full mt-6 py-3 border-2 border-slate-300 text-slate-600 rounded-lg font-semibold hover:bg-slate-50 transition-all"
             >
               Vérifier un autre code

@@ -1,13 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { UserPlus, Phone, Calendar, User, Trash2, CheckCircle, RotateCcw, Users, Clock, BarChart3, UserCheck, RefreshCw, AlertTriangle, X, Lock } from 'lucide-react';
-import { getApiErrorMessage, authApi, setDoctorToken, getDoctorToken, clearDoctorToken } from '../api/http';
-import { patientsApi, type Patient, type Stats, type Bilan } from '../api/patients';
+import { UserPlus, Phone, Calendar, User, Trash2, CheckCircle, RotateCcw, Users, Clock, BarChart3, UserCheck, RefreshCw, AlertTriangle, X, Lock, LogOut, Copy, Check, Building2 } from 'lucide-react';
+import { getApiErrorMessage, getDoctorToken, setDoctorToken, clearDoctorToken } from '../api/http';
+import { authApi, patientsApi, type Patient, type Stats, type Bilan, type Medecin } from '../api/patients';
 
-type ConfirmAction = {
-  patientId: number;
-  statut: 'annule' | 'termine';
-  patientName: string;
-};
+type ConfirmAction = { patientId: number; statut: 'annule' | 'termine'; patientName: string };
 
 function ConfirmModal({ action, onConfirm, onCancel }: { action: ConfirmAction; onConfirm: () => void; onCancel: () => void }) {
   const isAnnule = action.statut === 'annule';
@@ -18,95 +14,151 @@ function ConfirmModal({ action, onConfirm, onCancel }: { action: ConfirmAction; 
           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAnnule ? 'bg-red-100' : 'bg-green-100'}`}>
             <AlertTriangle className={`w-5 h-5 ${isAnnule ? 'text-red-600' : 'text-green-600'}`} />
           </div>
-          <h3 className="text-lg font-semibold text-slate-800">
-            {isAnnule ? 'Annuler le rendez-vous' : 'Terminer la consultation'}
-          </h3>
+          <h3 className="text-lg font-semibold text-slate-800">{isAnnule ? 'Annuler le rendez-vous' : 'Terminer la consultation'}</h3>
         </div>
         <p className="text-slate-600 mb-6">
-          {isAnnule
-            ? <>Voulez-vous annuler le rendez-vous de <strong>{action.patientName}</strong> ?</>
-            : <>Voulez-vous marquer la consultation de <strong>{action.patientName}</strong> comme terminée ?</>}
+          {isAnnule ? <>Voulez-vous annuler le rendez-vous de <strong>{action.patientName}</strong> ?</> : <>Voulez-vous marquer la consultation de <strong>{action.patientName}</strong> comme terminée ?</>}
         </p>
         <div className="flex gap-3">
-          <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors">
-            Annuler
-          </button>
-          <button onClick={onConfirm} className={`flex-1 py-2.5 rounded-xl text-white font-medium transition-colors ${isAnnule ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}>
-            Confirmer
-          </button>
+          <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors">Annuler</button>
+          <button onClick={onConfirm} className={`flex-1 py-2.5 rounded-xl text-white font-medium transition-colors ${isAnnule ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}>Confirmer</button>
         </div>
       </div>
     </div>
   );
 }
 
-function LoginScreen({ onLogin }: { onLogin: () => void }) {
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
+  return (
+    <button onClick={handleCopy} className="p-1.5 rounded-lg hover:bg-slate-200 transition-colors shrink-0" title="Copier">
+      {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-slate-400" />}
+    </button>
+  );
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
+function AuthScreen({ onAuth }: { onAuth: (medecin: Medecin, token: string) => void }) {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [registerForm, setRegisterForm] = useState({ email: '', password: '', nom: '', prenom: '', nom_cabinet: '' });
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const token = await authApi.login(pin);
+      const { medecin, token } = await authApi.login(loginForm.email, loginForm.password);
       setDoctorToken(token);
-      onLogin();
-    } catch {
-      setError('PIN incorrect. Veuillez réessayer.');
-      setPin('');
+      onAuth(medecin, token);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Email ou mot de passe incorrect.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const { medecin, token } = await authApi.register(registerForm);
+      setDoctorToken(token);
+      onAuth(medecin, token);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Erreur lors de la création du compte."));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
-        <div className="text-center mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4 py-8">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <div className="text-center mb-6">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-blue-600" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Accès Médecin</h1>
-          <p className="text-slate-500 text-sm mt-1">Entrez votre PIN pour continuer</p>
+          <h1 className="text-2xl font-bold text-slate-800">Espace Médecin</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Code PIN</label>
-            <input
-              type="password"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              required
-              autoFocus
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 rounded-xl text-center text-2xl tracking-widest focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="••••"
-              maxLength={10}
-            />
-          </div>
-
-          {error && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-center">
-              {error}
-            </div>
-          )}
-
-          <button type="submit" disabled={loading || !pin}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-60">
-            {loading ? 'Vérification...' : 'Connexion'}
+        <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
+          <button onClick={() => { setMode('login'); setError(''); }} className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === 'login' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>
+            Connexion
           </button>
-        </form>
+          <button onClick={() => { setMode('register'); setError(''); }} className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === 'register' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>
+            Créer un compte
+          </button>
+        </div>
+
+        {mode === 'login' ? (
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <input type="email" required autoFocus value={loginForm.email} onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="medecin@cabinet.fr" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Mot de passe</label>
+              <input type="password" required value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="••••••••" />
+            </div>
+            {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
+            <button type="submit" disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-60">
+              {loading ? 'Connexion...' : 'Se connecter'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Prénom</label>
+                <input type="text" required value={registerForm.prenom} onChange={(e) => setRegisterForm({ ...registerForm, prenom: e.target.value })}
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Jean" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nom</label>
+                <input type="text" required value={registerForm.nom} onChange={(e) => setRegisterForm({ ...registerForm, nom: e.target.value })}
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Dupont" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nom du cabinet</label>
+              <input type="text" required value={registerForm.nom_cabinet} onChange={(e) => setRegisterForm({ ...registerForm, nom_cabinet: e.target.value })}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Cabinet Médical du Centre" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <input type="email" required value={registerForm.email} onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="medecin@cabinet.fr" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Mot de passe</label>
+              <input type="password" required minLength={6} value={registerForm.password} onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="6 caractères minimum" />
+            </div>
+            {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
+            <button type="submit" disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-60">
+              {loading ? 'Création...' : 'Créer mon compte'}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
 }
 
 export default function MedecinInterface() {
-  const [authenticated, setAuthenticated] = useState(() => Boolean(getDoctorToken()));
+  const [medecin, setMedecin] = useState<Medecin | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
   const [formData, setFormData] = useState({ nom: '', prenom: '', age: '', telephone: '', motif: 'premier_contact' });
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [enAttente, setEnAttente] = useState<Patient[]>([]);
@@ -120,20 +172,20 @@ export default function MedecinInterface() {
   const [confirmation, setConfirmation] = useState<ConfirmAction | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    const token = getDoctorToken();
+    if (!token) return;
+    authApi.getMe().then((m) => { setMedecin(m); setAuthenticated(true); }).catch(() => { clearDoctorToken(); });
+  }, []);
+
   const showFeedback = useCallback((msg: string, type: 'success' | 'error') => {
     setFeedbackMessage(msg);
     setFeedbackType(type);
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = setTimeout(() => {
-      setFeedbackMessage('');
-      setFeedbackType('');
-    }, 3500);
+    feedbackTimer.current = setTimeout(() => { setFeedbackMessage(''); setFeedbackType(''); }, 3500);
   }, []);
 
-  const handleAuthError = useCallback(() => {
-    clearDoctorToken();
-    setAuthenticated(false);
-  }, []);
+  const handleAuthError = useCallback(() => { clearDoctorToken(); setAuthenticated(false); setMedecin(null); }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -143,10 +195,7 @@ export default function MedecinInterface() {
       setHistorique(data.historique);
       setStats(data.stats);
     } catch (error) {
-      if ((error as { response?: { status?: number } })?.response?.status === 401) {
-        handleAuthError();
-        return;
-      }
+      if ((error as { response?: { status?: number } })?.response?.status === 401) { handleAuthError(); return; }
       showFeedback(getApiErrorMessage(error, 'Impossible de charger les données.'), 'error');
     }
   }, [showFeedback, handleAuthError]);
@@ -174,13 +223,13 @@ export default function MedecinInterface() {
     return () => clearInterval(interval);
   }, [showBilan, loadBilan, authenticated]);
 
-  useEffect(() => {
-    return () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); };
-  }, []);
+  useEffect(() => { return () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); }; }, []);
 
   if (!authenticated) {
-    return <LoginScreen onLogin={() => setAuthenticated(true)} />;
+    return <AuthScreen onAuth={(m, t) => { setMedecin(m); setDoctorToken(t); setAuthenticated(true); }} />;
   }
+
+  const patientUrl = medecin ? `${window.location.origin}/patient/${medecin.cabinet_code}` : '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,42 +278,44 @@ export default function MedecinInterface() {
     await changerStatut(confirmation.patientId, confirmation.statut);
   };
 
-  const handleLogout = () => {
-    clearDoctorToken();
-    setAuthenticated(false);
-  };
+  const handleLogout = () => { clearDoctorToken(); setAuthenticated(false); setMedecin(null); };
 
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const getDureeConsultation = (heureAppel: string) => Math.floor((Date.now() - new Date(heureAppel).getTime()) / 60000);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {confirmation && (
-        <ConfirmModal
-          action={confirmation}
-          onConfirm={confirmerAction}
-          onCancel={() => setConfirmation(null)}
-        />
-      )}
+      {confirmation && <ConfirmModal action={confirmation} onConfirm={confirmerAction} onCancel={() => setConfirmation(null)} />}
 
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="text-center mb-10 relative">
-          <h1 className="text-4xl font-bold text-slate-800 mb-2">🏥 Cabinet Médical</h1>
-          <p className="text-slate-600">Interface Médecin - Gestion de la file d'attente</p>
-          <button onClick={handleLogout} className="absolute right-0 top-0 text-sm text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors" title="Se déconnecter">
-            <Lock className="w-4 h-4" />
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800">🏥 {medecin?.nom_cabinet}</h1>
+            <p className="text-slate-500 text-sm mt-0.5">Dr {medecin?.prenom} {medecin?.nom}</p>
+          </div>
+          <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 border border-slate-300 hover:border-slate-400 px-3 py-2 rounded-lg transition-colors">
+            <LogOut className="w-4 h-4" />
             <span className="hidden sm:inline">Déconnexion</span>
           </button>
         </div>
 
+        {/* Lien patient */}
+        {medecin && (
+          <div className="bg-white rounded-2xl shadow p-4 mb-6 flex items-center gap-3">
+            <Building2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-slate-500 font-medium mb-0.5">Lien à partager avec vos patients</p>
+              <p className="text-sm font-mono text-slate-700 truncate">{patientUrl}</p>
+            </div>
+            <CopyButton text={patientUrl} />
+          </div>
+        )}
+
         {feedbackMessage && (
-          <div className={`mb-4 rounded-lg border px-4 py-3 text-sm flex items-center justify-between ${
-            feedbackType === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700'
-          }`}>
+          <div className={`mb-4 rounded-lg border px-4 py-3 text-sm flex items-center justify-between ${feedbackType === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700'}`}>
             <span>{feedbackMessage}</span>
-            <button onClick={() => setFeedbackMessage('')} className="ml-3 opacity-60 hover:opacity-100">
-              <X className="w-4 h-4" />
-            </button>
+            <button onClick={() => setFeedbackMessage('')} className="ml-3 opacity-60 hover:opacity-100"><X className="w-4 h-4" /></button>
           </div>
         )}
 
@@ -274,7 +325,6 @@ export default function MedecinInterface() {
             <UserPlus className="w-5 h-5 text-blue-600" />
             Nouveau Patient
           </h2>
-
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Nom</label>
@@ -305,8 +355,7 @@ export default function MedecinInterface() {
               </select>
             </div>
             <div className="md:col-span-2 lg:col-span-3">
-              <button type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl">
+              <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl">
                 Ajouter le patient à la file
               </button>
             </div>
@@ -315,25 +364,23 @@ export default function MedecinInterface() {
           {generatedCode && (
             <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl">
               <p className="text-green-800 font-semibold text-center">
-                ✅ Patient ajouté ! Code généré :
-                <span className="text-3xl font-bold ml-2 text-green-600">{generatedCode}</span>
+                ✅ Patient ajouté ! Code généré : <span className="text-3xl font-bold ml-2 text-green-600">{generatedCode}</span>
               </p>
-              <p className="text-sm text-green-600 text-center mt-2">Communiquez ce code au patient pour qu'il puisse suivre sa position</p>
+              <p className="text-sm text-green-600 text-center mt-2">Communiquez ce code au patient</p>
               <button onClick={() => setGeneratedCode(null)} className="mt-3 mx-auto block text-sm text-green-700 hover:text-green-800 underline">Fermer</button>
             </div>
           )}
         </div>
 
-        {/* Bouton Bilan Journalier */}
+        {/* Bouton Bilan */}
         <div className="mb-6 flex justify-end">
-          <button onClick={() => setShowBilan((v) => !v)}
-            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow transition-colors">
+          <button onClick={() => setShowBilan((v) => !v)} className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow transition-colors">
             <BarChart3 className="w-5 h-5" />
             {showBilan ? 'Masquer le bilan' : 'Bilan journalier'}
           </button>
         </div>
 
-        {/* Bilan Journalier */}
+        {/* Bilan */}
         {showBilan && (
           <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border-l-4 border-indigo-500">
             <div className="flex items-center justify-between mb-5">
@@ -343,46 +390,22 @@ export default function MedecinInterface() {
               </h2>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-400">Actualisation auto. toutes les 3 min</span>
-                <button onClick={loadBilan} className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Actualiser maintenant">
-                  <RefreshCw className="w-4 h-4" />
-                </button>
+                <button onClick={loadBilan} className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><RefreshCw className="w-4 h-4" /></button>
               </div>
             </div>
-
             {bilan ? (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                  <div className="bg-slate-50 rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold text-slate-700">{bilan.total_patients}</div>
-                    <div className="text-xs text-slate-500 mt-1 font-medium">Total patients</div>
-                  </div>
-                  <div className="bg-green-50 rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold text-green-600">{bilan.termines}</div>
-                    <div className="text-xs text-slate-500 mt-1 font-medium">Consultations terminées</div>
-                  </div>
-                  <div className="bg-red-50 rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold text-red-400">{bilan.annules}</div>
-                    <div className="text-xs text-slate-500 mt-1 font-medium">Annulés</div>
-                  </div>
-                  <div className="bg-blue-50 rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold text-blue-600">{bilan.premier_contact}</div>
-                    <div className="flex items-center justify-center gap-1 text-xs text-slate-500 mt-1 font-medium">
-                      <UserCheck className="w-3 h-3" />Premier contact
-                    </div>
-                  </div>
-                  <div className="bg-purple-50 rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold text-purple-600">{bilan.controle}</div>
-                    <div className="flex items-center justify-center gap-1 text-xs text-slate-500 mt-1 font-medium">
-                      <RefreshCw className="w-3 h-3" />Contrôles
-                    </div>
-                  </div>
+                  <div className="bg-slate-50 rounded-xl p-4 text-center"><div className="text-3xl font-bold text-slate-700">{bilan.total_patients}</div><div className="text-xs text-slate-500 mt-1 font-medium">Total patients</div></div>
+                  <div className="bg-green-50 rounded-xl p-4 text-center"><div className="text-3xl font-bold text-green-600">{bilan.termines}</div><div className="text-xs text-slate-500 mt-1 font-medium">Consultations terminées</div></div>
+                  <div className="bg-red-50 rounded-xl p-4 text-center"><div className="text-3xl font-bold text-red-400">{bilan.annules}</div><div className="text-xs text-slate-500 mt-1 font-medium">Annulés</div></div>
+                  <div className="bg-blue-50 rounded-xl p-4 text-center"><div className="text-3xl font-bold text-blue-600">{bilan.premier_contact}</div><div className="flex items-center justify-center gap-1 text-xs text-slate-500 mt-1 font-medium"><UserCheck className="w-3 h-3" />Premier contact</div></div>
+                  <div className="bg-purple-50 rounded-xl p-4 text-center"><div className="text-3xl font-bold text-purple-600">{bilan.controle}</div><div className="flex items-center justify-center gap-1 text-xs text-slate-500 mt-1 font-medium"><RefreshCw className="w-3 h-3" />Contrôles</div></div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-3">
                   <Clock className="w-5 h-5 text-indigo-500" />
                   <span className="text-slate-700 font-medium">Durée moyenne de consultation :</span>
-                  <span className="text-xl font-bold text-indigo-600">
-                    {bilan.duree_moyenne_minutes !== null ? `${bilan.duree_moyenne_minutes} min` : '—'}
-                  </span>
+                  <span className="text-xl font-bold text-indigo-600">{bilan.duree_moyenne_minutes !== null ? `${bilan.duree_moyenne_minutes} min` : '—'}</span>
                   {bilan.duree_moyenne_minutes === null && <span className="text-xs text-slate-400">(aucune consultation terminée)</span>}
                 </div>
               </>
@@ -392,40 +415,21 @@ export default function MedecinInterface() {
           </div>
         )}
 
-        {/* Statistiques */}
+        {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-4 text-center">
-            <div className="text-3xl font-bold text-amber-500">{stats.en_attente}</div>
-            <div className="text-sm text-slate-600">En attente</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-4 text-center">
-            <div className="text-3xl font-bold text-blue-500">{stats.en_consultation}</div>
-            <div className="text-sm text-slate-600">En consultation</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-4 text-center">
-            <div className="text-3xl font-bold text-green-500">{stats.traites}</div>
-            <div className="text-sm text-slate-600">Traités aujourd'hui</div>
-          </div>
+          <div className="bg-white rounded-xl shadow-lg p-4 text-center"><div className="text-3xl font-bold text-amber-500">{stats.en_attente}</div><div className="text-sm text-slate-600">En attente</div></div>
+          <div className="bg-white rounded-xl shadow-lg p-4 text-center"><div className="text-3xl font-bold text-blue-500">{stats.en_consultation}</div><div className="text-sm text-slate-600">En consultation</div></div>
+          <div className="bg-white rounded-xl shadow-lg p-4 text-center"><div className="text-3xl font-bold text-green-500">{stats.traites}</div><div className="text-sm text-slate-600">Traités aujourd'hui</div></div>
         </div>
 
-        {/* File d'attente */}
+        {/* File */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Patients en attente */}
           <div className="bg-white rounded-2xl shadow-xl p-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-amber-500" />
-              File d'attente ({enAttente.length})
-            </h3>
-
+            <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-amber-500" />File d'attente ({enAttente.length})</h3>
             <button onClick={callNext} disabled={enAttente.length === 0 || enConsult.length > 0}
-              className={`w-full mb-4 py-3 rounded-lg font-semibold transition-all ${
-                enAttente.length === 0 || enConsult.length > 0
-                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-lg hover:shadow-xl'
-              }`}>
+              className={`w-full mb-4 py-3 rounded-lg font-semibold transition-all ${enAttente.length === 0 || enConsult.length > 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-lg hover:shadow-xl'}`}>
               {enConsult.length > 0 ? '⚠ Consultation en cours' : '📢 Appeler le suivant'}
             </button>
-
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {enAttente.map((patient, index) => (
                 <div key={patient.id} className="p-4 bg-amber-50 rounded-xl border border-amber-100">
@@ -447,14 +451,8 @@ export default function MedecinInterface() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <button onClick={() => changerStatut(patient.id, 'en_consultation')} disabled={enConsult.length > 0}
-                        className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50" title="Appeler">
-                        <Phone className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => demanderConfirmation(patient, 'annule')}
-                        className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600" title="Annuler">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <button onClick={() => changerStatut(patient.id, 'en_consultation')} disabled={enConsult.length > 0} className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50" title="Appeler"><Phone className="w-4 h-4" /></button>
+                      <button onClick={() => demanderConfirmation(patient, 'annule')} className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600" title="Annuler"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                 </div>
@@ -463,13 +461,8 @@ export default function MedecinInterface() {
             </div>
           </div>
 
-          {/* En consultation */}
           <div className="bg-white rounded-2xl shadow-xl p-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-              <User className="w-5 h-5 text-blue-500" />
-              En consultation
-            </h3>
-
+            <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2"><User className="w-5 h-5 text-blue-500" />En consultation</h3>
             <div className="space-y-3">
               {enConsult.map((patient) => (
                 <div key={patient.id} className="p-4 bg-blue-50 rounded-xl border border-blue-100">
@@ -482,20 +475,12 @@ export default function MedecinInterface() {
                       <div className="text-sm text-slate-600 space-y-1">
                         <div className="flex items-center gap-2"><Calendar className="w-4 h-4" />{patient.age} ans</div>
                         <div className="flex items-center gap-2"><Phone className="w-4 h-4" />{patient.telephone}</div>
-                        <div className="flex items-center gap-2 text-blue-600">
-                          <Clock className="w-4 h-4" />Depuis : {patient.heure_appel ? getDureeConsultation(patient.heure_appel) : 0} min
-                        </div>
+                        <div className="flex items-center gap-2 text-blue-600"><Clock className="w-4 h-4" />Depuis : {patient.heure_appel ? getDureeConsultation(patient.heure_appel) : 0} min</div>
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <button onClick={() => demanderConfirmation(patient, 'termine')}
-                        className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600" title="Terminer">
-                        <CheckCircle className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => changerStatut(patient.id, 'en_attente')}
-                        className="p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600" title="Remettre en attente">
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
+                      <button onClick={() => demanderConfirmation(patient, 'termine')} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600" title="Terminer"><CheckCircle className="w-4 h-4" /></button>
+                      <button onClick={() => changerStatut(patient.id, 'en_attente')} className="p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600" title="Remettre en attente"><RotateCcw className="w-4 h-4" /></button>
                     </div>
                   </div>
                 </div>
@@ -503,7 +488,6 @@ export default function MedecinInterface() {
               {enConsult.length === 0 && <div className="text-center py-8 text-slate-400">Aucun patient en consultation</div>}
             </div>
 
-            {/* Historique */}
             <div className="mt-6 pt-6 border-t border-slate-200">
               <h4 className="text-sm font-semibold text-slate-700 mb-3">Historique du jour</h4>
               <div className="space-y-2 max-h-48 overflow-y-auto">

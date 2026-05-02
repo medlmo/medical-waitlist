@@ -11,14 +11,28 @@ const pool = new Pool({
 const initDB = async () => {
   try {
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS medecins (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        nom VARCHAR(100) NOT NULL,
+        prenom VARCHAR(100) NOT NULL,
+        nom_cabinet VARCHAR(200) NOT NULL,
+        cabinet_code VARCHAR(10) UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS patients (
         id SERIAL PRIMARY KEY,
+        medecin_id INTEGER REFERENCES medecins(id),
         nom VARCHAR(100) NOT NULL,
         prenom VARCHAR(100) NOT NULL,
         age INTEGER,
         telephone VARCHAR(20) NOT NULL,
         motif VARCHAR(50) NOT NULL,
-        code VARCHAR(10) UNIQUE NOT NULL,
+        code VARCHAR(10) NOT NULL,
         statut VARCHAR(20) DEFAULT 'en_attente',
         heure_arrivee TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         heure_appel TIMESTAMP,
@@ -26,6 +40,19 @@ const initDB = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'patients' AND column_name = 'medecin_id'
+        ) THEN
+          ALTER TABLE patients ADD COLUMN medecin_id INTEGER REFERENCES medecins(id);
+        END IF;
+      END$$;
+    `);
+
     console.log('Base de données initialisée');
   } catch (err) {
     console.error('Erreur initialisation DB:', err);

@@ -9,7 +9,7 @@ router.get(
   '/dashboard',
   requireDoctor,
   asyncHandler(async (req, res) => {
-    const data = await service.getDashboard();
+    const data = await service.getDashboard(req.medecinId);
     res.json({ success: true, ...data });
   })
 );
@@ -18,7 +18,7 @@ router.post(
   '/patients',
   requireDoctor,
   asyncHandler(async (req, res) => {
-    const patient = await service.addPatient(req.body);
+    const patient = await service.addPatient(req.body, req.medecinId);
     res.json({ success: true, patient });
   })
 );
@@ -27,7 +27,7 @@ router.post(
   '/patients/appeler-suivant',
   requireDoctor,
   asyncHandler(async (req, res) => {
-    const patient = await service.callNextPatient();
+    const patient = await service.callNextPatient(req.medecinId);
     res.json({ success: true, patient });
   })
 );
@@ -36,7 +36,7 @@ router.patch(
   '/patients/:id/statut',
   requireDoctor,
   asyncHandler(async (req, res) => {
-    const patient = await service.updateStatus(req.params.id, req.body.statut);
+    const patient = await service.updateStatus(req.params.id, req.body.statut, req.medecinId);
     res.json({ success: true, patient });
   })
 );
@@ -53,7 +53,7 @@ router.get(
   '/bilan',
   requireDoctor,
   asyncHandler(async (req, res) => {
-    const bilan = await service.getDailyBilan();
+    const bilan = await service.getDailyBilan(req.medecinId);
     res.json({ success: true, bilan });
   })
 );

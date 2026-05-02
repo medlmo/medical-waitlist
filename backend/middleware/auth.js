@@ -1,9 +1,6 @@
-const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
-const getExpectedToken = () => {
-  const pin = process.env.DOCTOR_PIN || '1234';
-  return crypto.createHmac('sha256', pin).update('doctor-session').digest('hex');
-};
+const JWT_SECRET = () => process.env.JWT_SECRET || 'fallback-secret-change-me';
 
 const requireDoctor = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -11,10 +8,14 @@ const requireDoctor = (req, res, next) => {
     return res.status(401).json({ success: false, error: 'Authentification requise' });
   }
   const token = authHeader.slice(7);
-  if (token !== getExpectedToken()) {
-    return res.status(401).json({ success: false, error: 'Token invalide' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET());
+    req.medecinId = decoded.id;
+    req.medecinEmail = decoded.email;
+    next();
+  } catch {
+    return res.status(401).json({ success: false, error: 'Token invalide ou expiré' });
   }
-  next();
 };
 
-module.exports = { requireDoctor, getExpectedToken };
+module.exports = { requireDoctor };

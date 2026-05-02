@@ -5,123 +5,127 @@ const findByCode = async (code) => {
   return result.rows[0] || null;
 };
 
-const findByCodeToday = async (code) => {
+const findByCodeToday = async (code, medecinId) => {
   const result = await pool.query(
-    'SELECT id FROM patients WHERE code = $1 AND DATE(heure_arrivee) = CURRENT_DATE',
-    [code]
+    'SELECT id FROM patients WHERE code = $1 AND medecin_id = $2 AND DATE(heure_arrivee) = CURRENT_DATE',
+    [code, medecinId]
   );
   return result.rows[0] || null;
 };
 
-const createPatient = async ({ nom, prenom, age, telephone, motif, code }) => {
+const createPatient = async ({ nom, prenom, age, telephone, motif, code, medecinId }) => {
   const result = await pool.query(
-    `INSERT INTO patients (nom, prenom, age, telephone, motif, code, statut)
-     VALUES ($1, $2, $3, $4, $5, $6, 'en_attente')
+    `INSERT INTO patients (medecin_id, nom, prenom, age, telephone, motif, code, statut)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'en_attente')
      RETURNING *`,
-    [nom, prenom, age, telephone, motif, code]
+    [medecinId, nom, prenom, age, telephone, motif, code]
   );
-
   return result.rows[0];
 };
 
-const getPatientsForToday = async () => {
+const getPatientsForToday = async (medecinId) => {
   const result = await pool.query(
     `SELECT * FROM patients
-     WHERE statut IN ('en_attente', 'en_consultation')
+     WHERE medecin_id = $1
+     AND statut IN ('en_attente', 'en_consultation')
      AND DATE(heure_arrivee) = CURRENT_DATE
-     ORDER BY heure_arrivee ASC`
+     ORDER BY heure_arrivee ASC`,
+    [medecinId]
   );
-
   return result.rows;
 };
 
-const getHistoryForToday = async () => {
+const getHistoryForToday = async (medecinId) => {
   const result = await pool.query(
     `SELECT * FROM patients
-     WHERE statut IN ('termine', 'annule')
+     WHERE medecin_id = $1
+     AND statut IN ('termine', 'annule')
      AND DATE(heure_arrivee) = CURRENT_DATE
      ORDER BY heure_fin DESC
-     LIMIT 20`
+     LIMIT 20`,
+    [medecinId]
   );
-
   return result.rows;
 };
 
-const getPatientInConsultation = async () => {
+const getPatientInConsultation = async (medecinId) => {
   const result = await pool.query(
     `SELECT * FROM patients
-     WHERE statut = 'en_consultation'
-     AND DATE(heure_arrivee) = CURRENT_DATE`
+     WHERE medecin_id = $1
+     AND statut = 'en_consultation'
+     AND DATE(heure_arrivee) = CURRENT_DATE`,
+    [medecinId]
   );
-
   return result.rows[0] || null;
 };
 
-const getNextWaitingPatient = async () => {
+const getNextWaitingPatient = async (medecinId) => {
   const result = await pool.query(
     `SELECT * FROM patients
-     WHERE statut = 'en_attente' AND DATE(heure_arrivee) = CURRENT_DATE
+     WHERE medecin_id = $1
+     AND statut = 'en_attente'
+     AND DATE(heure_arrivee) = CURRENT_DATE
      ORDER BY heure_arrivee ASC
-     LIMIT 1`
+     LIMIT 1`,
+    [medecinId]
   );
-
   return result.rows[0] || null;
 };
 
-const updatePatientStatus = async (id, statut) => {
+const updatePatientStatus = async (id, statut, medecinId) => {
   let query;
   if (statut === 'en_consultation') {
-    query = `UPDATE patients SET statut = $1, heure_appel = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *`;
+    query = `UPDATE patients SET statut = $1, heure_appel = CURRENT_TIMESTAMP WHERE id = $2 AND medecin_id = $3 RETURNING *`;
   } else if (statut === 'termine' || statut === 'annule') {
-    query = `UPDATE patients SET statut = $1, heure_fin = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *`;
+    query = `UPDATE patients SET statut = $1, heure_fin = CURRENT_TIMESTAMP WHERE id = $2 AND medecin_id = $3 RETURNING *`;
   } else if (statut === 'en_attente') {
-    query = `UPDATE patients SET statut = $1, heure_appel = NULL WHERE id = $2 RETURNING *`;
+    query = `UPDATE patients SET statut = $1, heure_appel = NULL WHERE id = $2 AND medecin_id = $3 RETURNING *`;
   } else {
-    query = `UPDATE patients SET statut = $1 WHERE id = $2 RETURNING *`;
+    query = `UPDATE patients SET statut = $1 WHERE id = $2 AND medecin_id = $3 RETURNING *`;
   }
-
-  const result = await pool.query(query, [statut, id]);
+  const result = await pool.query(query, [statut, id, medecinId]);
   return result.rows[0] || null;
 };
 
-const findPatientForVerification = async ({ code, phoneDigits, phoneSuffix }) => {
+const findPatientForVerification = async ({ code, phoneDigits, phoneSuffix, medecinId }) => {
   const result = await pool.query(
     `SELECT * FROM patients
      WHERE code = $1
-     AND (telephone = $2 OR telephone LIKE $3)
+     AND medecin_id = $2
+     AND (telephone = $3 OR telephone LIKE $4)
      AND DATE(heure_arrivee) = CURRENT_DATE`,
-    [code, phoneDigits, `%${phoneSuffix}`]
+    [code, medecinId, phoneDigits, `%${phoneSuffix}`]
   );
-
   return result.rows[0] || null;
 };
 
-const countWaitingBefore = async (heureArrivee) => {
+const countWaitingBefore = async (heureArrivee, medecinId) => {
   const result = await pool.query(
     `SELECT COUNT(*) as position FROM patients
-     WHERE statut = 'en_attente'
-     AND heure_arrivee < $1
+     WHERE medecin_id = $1
+     AND statut = 'en_attente'
+     AND heure_arrivee < $2
      AND DATE(heure_arrivee) = CURRENT_DATE`,
-    [heureArrivee]
+    [medecinId, heureArrivee]
   );
-
   return parseInt(result.rows[0].position, 10);
 };
 
-const getStatsForToday = async () => {
+const getStatsForToday = async (medecinId) => {
   const result = await pool.query(
     `SELECT
       COUNT(*) FILTER (WHERE statut = 'en_attente') as en_attente,
       COUNT(*) FILTER (WHERE statut = 'en_consultation') as en_consultation,
       COUNT(*) FILTER (WHERE statut IN ('termine', 'annule')) as traites
      FROM patients
-     WHERE DATE(heure_arrivee) = CURRENT_DATE`
+     WHERE medecin_id = $1
+     AND DATE(heure_arrivee) = CURRENT_DATE`,
+    [medecinId]
   );
-
   return result.rows[0];
 };
 
-const getAverageConsultationDuration = async () => {
+const getAverageConsultationDuration = async (medecinId) => {
   const result = await pool.query(
     `SELECT COALESCE(
       ROUND(AVG(EXTRACT(EPOCH FROM (heure_fin - heure_appel)) / 60) FILTER (
@@ -130,12 +134,14 @@ const getAverageConsultationDuration = async () => {
       15
     ) as duree_moyenne
      FROM patients
-     WHERE DATE(heure_arrivee) = CURRENT_DATE`
+     WHERE medecin_id = $1
+     AND DATE(heure_arrivee) = CURRENT_DATE`,
+    [medecinId]
   );
   return parseInt(result.rows[0].duree_moyenne, 10);
 };
 
-const getDailyBilan = async () => {
+const getDailyBilan = async (medecinId) => {
   const result = await pool.query(
     `SELECT
       COUNT(*) as total_patients,
@@ -144,14 +150,14 @@ const getDailyBilan = async () => {
       COUNT(*) FILTER (WHERE motif = 'premier_contact') as premier_contact,
       COUNT(*) FILTER (WHERE motif = 'controle') as controle,
       ROUND(
-        AVG(
-          EXTRACT(EPOCH FROM (heure_fin - heure_appel)) / 60
-        ) FILTER (WHERE statut = 'termine' AND heure_appel IS NOT NULL AND heure_fin IS NOT NULL)
+        AVG(EXTRACT(EPOCH FROM (heure_fin - heure_appel)) / 60)
+        FILTER (WHERE statut = 'termine' AND heure_appel IS NOT NULL AND heure_fin IS NOT NULL)
       , 1) as duree_moyenne_minutes
      FROM patients
-     WHERE DATE(heure_arrivee) = CURRENT_DATE`
+     WHERE medecin_id = $1
+     AND DATE(heure_arrivee) = CURRENT_DATE`,
+    [medecinId]
   );
-
   return result.rows[0];
 };
 
