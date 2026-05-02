@@ -5,6 +5,14 @@ const findByCode = async (code) => {
   return result.rows[0] || null;
 };
 
+const findByCodeToday = async (code) => {
+  const result = await pool.query(
+    'SELECT id FROM patients WHERE code = $1 AND DATE(heure_arrivee) = CURRENT_DATE',
+    [code]
+  );
+  return result.rows[0] || null;
+};
+
 const createPatient = async ({ nom, prenom, age, telephone, motif, code }) => {
   const result = await pool.query(
     `INSERT INTO patients (nom, prenom, age, telephone, motif, code, statut)
@@ -149,6 +157,7 @@ const getDailyBilan = async () => {
 
 module.exports = {
   findByCode,
+  findByCodeToday,
   createPatient,
   getPatientsForToday,
   getHistoryForToday,

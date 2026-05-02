@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { UserPlus, Phone, Calendar, User, Trash2, CheckCircle, RotateCcw, Users, Clock, BarChart3, UserCheck, RefreshCw, AlertTriangle, X } from 'lucide-react';
-import { getApiErrorMessage } from '../api/http';
+import { UserPlus, Phone, Calendar, User, Trash2, CheckCircle, RotateCcw, Users, Clock, BarChart3, UserCheck, RefreshCw, AlertTriangle, X, Lock } from 'lucide-react';
+import { getApiErrorMessage, authApi, setDoctorToken, getDoctorToken, clearDoctorToken } from '../api/http';
 import { patientsApi, type Patient, type Stats, type Bilan } from '../api/patients';
 
 type ConfirmAction = {
@@ -24,24 +24,15 @@ function ConfirmModal({ action, onConfirm, onCancel }: { action: ConfirmAction; 
         </div>
         <p className="text-slate-600 mb-6">
           {isAnnule
-            ? <>Voulez-vous annuler le rendez-vous de <strong>{action.patientName}</strong> ? Cette action est irréversible.</>
-            : <>Voulez-vous terminer la consultation de <strong>{action.patientName}</strong> ?</>
-          }
+            ? <>Voulez-vous annuler le rendez-vous de <strong>{action.patientName}</strong> ?</>
+            : <>Voulez-vous marquer la consultation de <strong>{action.patientName}</strong> comme terminée ?</>}
         </p>
         <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-colors"
-          >
+          <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors">
             Annuler
           </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 py-2.5 text-white rounded-xl font-semibold transition-colors ${
-              isAnnule ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-            }`}
-          >
-            {isAnnule ? 'Oui, annuler' : 'Oui, terminer'}
+          <button onClick={onConfirm} className={`flex-1 py-2.5 rounded-xl text-white font-medium transition-colors ${isAnnule ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}>
+            Confirmer
           </button>
         </div>
       </div>
@@ -49,7 +40,73 @@ function ConfirmModal({ action, onConfirm, onCancel }: { action: ConfirmAction; 
   );
 }
 
+function LoginScreen({ onLogin }: { onLogin: () => void }) {
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const token = await authApi.login(pin);
+      setDoctorToken(token);
+      onLogin();
+    } catch {
+      setError('PIN incorrect. Veuillez réessayer.');
+      setPin('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-blue-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-800">Accès Médecin</h1>
+          <p className="text-slate-500 text-sm mt-1">Entrez votre PIN pour continuer</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Code PIN</label>
+            <input
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              required
+              autoFocus
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              className="w-full px-4 py-3 border border-slate-300 rounded-xl text-center text-2xl tracking-widest focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="••••"
+              maxLength={10}
+            />
+          </div>
+
+          {error && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-center">
+              {error}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading || !pin}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-60">
+            {loading ? 'Vérification...' : 'Connexion'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function MedecinInterface() {
+  const [authenticated, setAuthenticated] = useState(() => Boolean(getDoctorToken()));
   const [formData, setFormData] = useState({ nom: '', prenom: '', age: '', telephone: '', motif: 'premier_contact' });
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [enAttente, setEnAttente] = useState<Patient[]>([]);
@@ -73,17 +130,26 @@ export default function MedecinInterface() {
     }, 3500);
   }, []);
 
+  const handleAuthError = useCallback(() => {
+    clearDoctorToken();
+    setAuthenticated(false);
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
-      const { dashboard, stats: latestStats } = await patientsApi.getDashboardData();
-      setEnAttente(dashboard.enAttente);
-      setEnConsult(dashboard.enConsultation);
-      setHistorique(dashboard.historique);
-      setStats(latestStats);
+      const data = await patientsApi.getDashboardData();
+      setEnAttente(data.enAttente);
+      setEnConsult(data.enConsultation);
+      setHistorique(data.historique);
+      setStats(data.stats);
     } catch (error) {
+      if ((error as { response?: { status?: number } })?.response?.status === 401) {
+        handleAuthError();
+        return;
+      }
       showFeedback(getApiErrorMessage(error, 'Impossible de charger les données.'), 'error');
     }
-  }, [showFeedback]);
+  }, [showFeedback, handleAuthError]);
 
   const loadBilan = useCallback(async () => {
     try {
@@ -95,21 +161,26 @@ export default function MedecinInterface() {
   }, [showFeedback]);
 
   useEffect(() => {
+    if (!authenticated) return;
     loadData();
     const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
-  }, [loadData]);
+  }, [loadData, authenticated]);
 
   useEffect(() => {
-    if (!showBilan) return;
+    if (!showBilan || !authenticated) return;
     loadBilan();
     const interval = setInterval(loadBilan, 30000);
     return () => clearInterval(interval);
-  }, [showBilan, loadBilan]);
+  }, [showBilan, loadBilan, authenticated]);
 
   useEffect(() => {
     return () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); };
   }, []);
+
+  if (!authenticated) {
+    return <LoginScreen onLogin={() => setAuthenticated(true)} />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,6 +191,7 @@ export default function MedecinInterface() {
       showFeedback('Patient ajouté avec succès.', 'success');
       loadData();
     } catch (error) {
+      if ((error as { response?: { status?: number } })?.response?.status === 401) { handleAuthError(); return; }
       showFeedback(getApiErrorMessage(error, "Erreur lors de l'ajout du patient."), 'error');
     }
   };
@@ -130,6 +202,7 @@ export default function MedecinInterface() {
       showFeedback('Patient appelé avec succès.', 'success');
       loadData();
     } catch (error) {
+      if ((error as { response?: { status?: number } })?.response?.status === 401) { handleAuthError(); return; }
       showFeedback(getApiErrorMessage(error, "Erreur lors de l'appel du patient."), 'error');
     }
   };
@@ -141,6 +214,7 @@ export default function MedecinInterface() {
       loadData();
       if (showBilan) loadBilan();
     } catch (error) {
+      if ((error as { response?: { status?: number } })?.response?.status === 401) { handleAuthError(); return; }
       showFeedback(getApiErrorMessage(error, 'Erreur lors du changement de statut.'), 'error');
     }
   };
@@ -155,8 +229,12 @@ export default function MedecinInterface() {
     await changerStatut(confirmation.patientId, confirmation.statut);
   };
 
-  const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const handleLogout = () => {
+    clearDoctorToken();
+    setAuthenticated(false);
+  };
 
+  const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const getDureeConsultation = (heureAppel: string) => Math.floor((Date.now() - new Date(heureAppel).getTime()) / 60000);
 
   return (
@@ -170,9 +248,13 @@ export default function MedecinInterface() {
       )}
 
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="text-center mb-10">
+        <div className="text-center mb-10 relative">
           <h1 className="text-4xl font-bold text-slate-800 mb-2">🏥 Cabinet Médical</h1>
           <p className="text-slate-600">Interface Médecin - Gestion de la file d'attente</p>
+          <button onClick={handleLogout} className="absolute right-0 top-0 text-sm text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors" title="Se déconnecter">
+            <Lock className="w-4 h-4" />
+            <span className="hidden sm:inline">Déconnexion</span>
+          </button>
         </div>
 
         {feedbackMessage && (

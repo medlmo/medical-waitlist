@@ -1,27 +1,31 @@
 const express = require('express');
 const service = require('../services/patientService');
 const { asyncHandler } = require('../errors');
+const { requireDoctor } = require('../middleware/auth');
 
 const router = express.Router();
 
+router.get(
+  '/dashboard',
+  requireDoctor,
+  asyncHandler(async (req, res) => {
+    const data = await service.getDashboard();
+    res.json({ success: true, ...data });
+  })
+);
+
 router.post(
   '/patients',
+  requireDoctor,
   asyncHandler(async (req, res) => {
     const patient = await service.addPatient(req.body);
     res.json({ success: true, patient });
   })
 );
 
-router.get(
-  '/patients',
-  asyncHandler(async (req, res) => {
-    const data = await service.getDashboardData();
-    res.json({ success: true, ...data });
-  })
-);
-
 router.post(
   '/patients/appeler-suivant',
+  requireDoctor,
   asyncHandler(async (req, res) => {
     const patient = await service.callNextPatient();
     res.json({ success: true, patient });
@@ -30,6 +34,7 @@ router.post(
 
 router.patch(
   '/patients/:id/statut',
+  requireDoctor,
   asyncHandler(async (req, res) => {
     const patient = await service.updateStatus(req.params.id, req.body.statut);
     res.json({ success: true, patient });
@@ -45,15 +50,8 @@ router.post(
 );
 
 router.get(
-  '/stats',
-  asyncHandler(async (req, res) => {
-    const stats = await service.getStats();
-    res.json({ success: true, stats });
-  })
-);
-
-router.get(
   '/bilan',
+  requireDoctor,
   asyncHandler(async (req, res) => {
     const bilan = await service.getDailyBilan();
     res.json({ success: true, bilan });

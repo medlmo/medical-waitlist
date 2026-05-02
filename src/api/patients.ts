@@ -33,6 +33,7 @@ export interface DashboardData {
   enAttente: Patient[];
   enConsultation: Patient[];
   historique: Patient[];
+  stats: Stats;
 }
 
 export interface VerificationResult {
@@ -40,19 +41,13 @@ export interface VerificationResult {
   position: number;
   patientsDevant: number;
   tempsAttente: number;
+  dureeMoyenne: number;
 }
 
 export const patientsApi = {
-  async getDashboardData() {
-    const [patientsRes, statsRes] = await Promise.all([
-      apiClient.get('/patients'),
-      apiClient.get('/stats'),
-    ]);
-
-    return {
-      dashboard: patientsRes.data as DashboardData,
-      stats: statsRes.data.stats as Stats,
-    };
+  async getDashboardData(): Promise<DashboardData> {
+    const response = await apiClient.get('/dashboard');
+    return response.data as DashboardData;
   },
 
   async addPatient(payload: {

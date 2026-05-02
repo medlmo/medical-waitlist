@@ -10,6 +10,7 @@ channel = "stable-25_05"
 
 [userenv.shared]
 PORT = "3001"
+DOCTOR_PIN = "1234"
 
 [workflows]
 runButton = "Project"

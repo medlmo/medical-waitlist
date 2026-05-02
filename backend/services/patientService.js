@@ -2,6 +2,7 @@ const repository = require('../repositories/patientRepository');
 const { AppError } = require('../errors');
 
 const ALLOWED_STATUSES = ['en_attente', 'en_consultation', 'termine', 'annule'];
+const ALLOWED_MOTIFS = ['premier_contact', 'controle'];
 
 const generateUniqueCode = async () => {
   let code;
@@ -9,7 +10,7 @@ const generateUniqueCode = async () => {
 
   while (exists) {
     code = Math.floor(1000 + Math.random() * 9000).toString();
-    const existingPatient = await repository.findByCode(code);
+    const existingPatient = await repository.findByCodeToday(code);
     exists = Boolean(existingPatient);
   }
 
@@ -26,12 +27,17 @@ const validatePatientPayload = ({ nom, prenom, age, telephone, motif }) => {
     throw new AppError('Age invalide', 400);
   }
 
+  const motifNormalized = motif.trim().toLowerCase();
+  if (!ALLOWED_MOTIFS.includes(motifNormalized)) {
+    throw new AppError(`Motif invalide. Valeurs acceptées : ${ALLOWED_MOTIFS.join(', ')}`, 400);
+  }
+
   return {
     nom: nom.trim(),
     prenom: prenom.trim(),
     age: parsedAge,
     telephone: telephone.trim(),
-    motif: motif.trim(),
+    motif: motifNormalized,
   };
 };
 
@@ -41,16 +47,18 @@ const addPatient = async (payload) => {
   return repository.createPatient({ ...safePayload, code });
 };
 
-const getDashboardData = async () => {
-  const [patients, historique] = await Promise.all([
+const getDashboard = async () => {
+  const [patients, historique, stats] = await Promise.all([
     repository.getPatientsForToday(),
     repository.getHistoryForToday(),
+    repository.getStatsForToday(),
   ]);
 
   return {
-    enAttente: patients.filter((patient) => patient.statut === 'en_attente'),
-    enConsultation: patients.filter((patient) => patient.statut === 'en_consultation'),
+    enAttente: patients.filter((p) => p.statut === 'en_attente'),
+    enConsultation: patients.filter((p) => p.statut === 'en_consultation'),
     historique,
+    stats,
   };
 };
 
@@ -115,7 +123,7 @@ const getDailyBilan = async () => repository.getDailyBilan();
 
 module.exports = {
   addPatient,
-  getDashboardData,
+  getDashboard,
   callNextPatient,
   updateStatus,
   verifyPatient,

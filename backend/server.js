@@ -2,15 +2,36 @@ const express = require('express');
 const cors = require('cors');
 const { initDB } = require('./db');
 const patientRoutes = require('./routes/patients');
+const authRoutes = require('./routes/auth');
 const { errorMiddleware } = require('./errors');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+const allowedOrigins = [
+  'http://localhost:5000',
+  'http://0.0.0.0:5000',
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.replit.dev') ||
+      origin.endsWith('.replit.app')
+    ) {
+      return callback(null, true);
+    }
+    return callback(new Error('Origine non autorisée par CORS'));
+  },
+  credentials: true,
+}));
+
 app.use(express.json());
 
+app.use('/api/auth', authRoutes);
 app.use('/api', patientRoutes);
 app.use(errorMiddleware);
 
