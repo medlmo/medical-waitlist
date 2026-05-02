@@ -95,12 +95,17 @@ const verifyPatient = async ({ code, telephone }) => {
     throw new AppError('Patient non trouve', 404);
   }
 
-  const position = await repository.countWaitingBefore(patient.heure_arrivee);
+  const [position, dureeMoyenne] = await Promise.all([
+    repository.countWaitingBefore(patient.heure_arrivee),
+    repository.getAverageConsultationDuration(),
+  ]);
+
   return {
     patient,
     position,
     patientsDevant: position,
-    tempsAttente: position * 15,
+    tempsAttente: position * dureeMoyenne,
+    dureeMoyenne,
   };
 };
 

@@ -113,6 +113,20 @@ const getStatsForToday = async () => {
   return result.rows[0];
 };
 
+const getAverageConsultationDuration = async () => {
+  const result = await pool.query(
+    `SELECT COALESCE(
+      ROUND(AVG(EXTRACT(EPOCH FROM (heure_fin - heure_appel)) / 60) FILTER (
+        WHERE statut = 'termine' AND heure_appel IS NOT NULL AND heure_fin IS NOT NULL
+      ), 0),
+      15
+    ) as duree_moyenne
+     FROM patients
+     WHERE DATE(heure_arrivee) = CURRENT_DATE`
+  );
+  return parseInt(result.rows[0].duree_moyenne, 10);
+};
+
 const getDailyBilan = async () => {
   const result = await pool.query(
     `SELECT
@@ -144,5 +158,6 @@ module.exports = {
   findPatientForVerification,
   countWaitingBefore,
   getStatsForToday,
+  getAverageConsultationDuration,
   getDailyBilan,
 };
