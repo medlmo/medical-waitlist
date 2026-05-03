@@ -236,7 +236,6 @@ function EditModal({ medecin, onClose, onUpdated }: { medecin: MedecinWithStats;
     prenom: medecin.prenom,
     nom: medecin.nom,
     email: medecin.email,
-    nom_cabinet: medecin.nom_cabinet,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -285,11 +284,6 @@ function EditModal({ medecin, onClose, onUpdated }: { medecin: MedecinWithStats;
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
             <input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Nom du cabinet</label>
-            <input required value={form.nom_cabinet} onChange={e => setForm({ ...form, nom_cabinet: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
           {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
