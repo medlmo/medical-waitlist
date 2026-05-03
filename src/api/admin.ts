@@ -21,6 +21,11 @@ export interface MedecinWithStats extends Medecin {
   patients_today: number;
 }
 
+export interface Cabinet {
+  cabinet_code: string;
+  nom_cabinet: string;
+}
+
 export const adminApi = {
   async login(email: string, password: string) {
     const res = await axios.post('/api/admin/login', { email, password });
@@ -30,7 +35,14 @@ export const adminApi = {
     const res = await adminClient.get('/medecins');
     return res.data.medecins as MedecinWithStats[];
   },
-  async createMedecin(payload: { email: string; password: string; nom: string; prenom: string; nom_cabinet: string }) {
+  async getCabinets() {
+    const res = await adminClient.get('/cabinets');
+    return res.data.cabinets as Cabinet[];
+  },
+  async createMedecin(payload: {
+    email: string; password: string; nom: string; prenom: string;
+    nom_cabinet?: string; role: string; cabinet_code?: string;
+  }) {
     const res = await adminClient.post('/medecins', payload);
     return res.data.medecin as Medecin;
   },

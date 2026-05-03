@@ -5,6 +5,7 @@ const { AppError } = require('../errors');
 
 const JWT_SECRET = () => process.env.JWT_SECRET || 'fallback-secret-change-me';
 const JWT_EXPIRES = '7d';
+const ALLOWED_ROLES = ['medecin', 'assistante'];
 
 const generateCabinetCode = async () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -17,8 +18,8 @@ const generateCabinetCode = async () => {
   return code;
 };
 
-const register = async ({ email, password, nom, prenom, nom_cabinet }) => {
-  if (!email || !password || !nom || !prenom || !nom_cabinet) {
+const register = async ({ email, password, nom, prenom, nom_cabinet, role, cabinet_code }) => {
+  if (!email || !password || !nom || !prenom) {
     throw new AppError('Tous les champs sont requis', 400);
   }
   if (password.length < 6) {
@@ -29,24 +30,50 @@ const register = async ({ email, password, nom, prenom, nom_cabinet }) => {
     throw new AppError('Email invalide', 400);
   }
 
+  const userRole = role && ALLOWED_ROLES.includes(role) ? role : 'assistante';
+
+  if (userRole === 'medecin' && !nom_cabinet) {
+    throw new AppError('Le nom du cabinet est requis pour un médecin', 400);
+  }
+  if (userRole === 'assistante' && !cabinet_code) {
+    throw new AppError('Le code cabinet est requis pour une assistante', 400);
+  }
+
   const existing = await repository.findByEmail(email.toLowerCase());
   if (existing) {
     throw new AppError('Un compte avec cet email existe déjà', 409);
   }
 
   const password_hash = await bcrypt.hash(password, 12);
-  const cabinet_code = await generateCabinetCode();
+
+  let resolvedCabinetCode;
+  let resolvedNomCabinet;
+
+  if (userRole === 'medecin') {
+    resolvedCabinetCode = await generateCabinetCode();
+    resolvedNomCabinet = nom_cabinet.trim();
+  } else {
+    const cabinet = await repository.findByCabinetCode(cabinet_code.toUpperCase());
+    if (!cabinet) throw new AppError('Code cabinet introuvable', 404);
+    resolvedCabinetCode = cabinet.cabinet_code;
+    resolvedNomCabinet = cabinet.nom_cabinet;
+  }
 
   const medecin = await repository.createMedecin({
     email: email.toLowerCase(),
     password_hash,
     nom: nom.trim(),
     prenom: prenom.trim(),
-    nom_cabinet: nom_cabinet.trim(),
-    cabinet_code,
+    nom_cabinet: resolvedNomCabinet,
+    cabinet_code: resolvedCabinetCode,
+    role: userRole,
   });
 
-  const token = jwt.sign({ id: medecin.id, email: medecin.email }, JWT_SECRET(), { expiresIn: JWT_EXPIRES });
+  const token = jwt.sign(
+    { id: medecin.id, email: medecin.email, cabinet_code: medecin.cabinet_code, role: medecin.role },
+    JWT_SECRET(),
+    { expiresIn: JWT_EXPIRES }
+  );
   return { medecin, token };
 };
 
@@ -66,7 +93,11 @@ const login = async ({ email, password }) => {
   }
 
   const { password_hash, ...medecinSafe } = medecin;
-  const token = jwt.sign({ id: medecinSafe.id, email: medecinSafe.email }, JWT_SECRET(), { expiresIn: JWT_EXPIRES });
+  const token = jwt.sign(
+    { id: medecinSafe.id, email: medecinSafe.email, cabinet_code: medecinSafe.cabinet_code, role: medecinSafe.role },
+    JWT_SECRET(),
+    { expiresIn: JWT_EXPIRES }
+  );
   return { medecin: medecinSafe, token };
 };
 

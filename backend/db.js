@@ -18,7 +18,8 @@ const initDB = async () => {
         nom VARCHAR(100) NOT NULL,
         prenom VARCHAR(100) NOT NULL,
         nom_cabinet VARCHAR(200) NOT NULL,
-        cabinet_code VARCHAR(10) UNIQUE NOT NULL,
+        cabinet_code VARCHAR(10) NOT NULL,
+        role VARCHAR(20) DEFAULT 'assistante' NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -49,6 +50,12 @@ const initDB = async () => {
           WHERE table_name = 'patients' AND column_name = 'medecin_id'
         ) THEN
           ALTER TABLE patients ADD COLUMN medecin_id INTEGER REFERENCES medecins(id);
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'medecins' AND column_name = 'role'
+        ) THEN
+          ALTER TABLE medecins ADD COLUMN role VARCHAR(20) DEFAULT 'assistante' NOT NULL;
         END IF;
       END$$;
     `);

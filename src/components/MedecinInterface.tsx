@@ -171,6 +171,7 @@ export default function MedecinInterface() {
   }
 
   const patientUrl = medecin ? `${window.location.origin}/patient/${medecin.cabinet_code}` : '';
+  const isAssistante = medecin?.role === 'assistante';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,7 +235,14 @@ export default function MedecinInterface() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">🏥 {medecin?.nom_cabinet}</h1>
-            <p className="text-slate-500 text-sm mt-0.5">Dr {medecin?.prenom} {medecin?.nom}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-slate-500 text-sm">{medecin?.prenom} {medecin?.nom}</p>
+              {isAssistante ? (
+                <span className="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full font-semibold">🗂 Assistante</span>
+              ) : (
+                <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-semibold">🩺 Médecin</span>
+              )}
+            </div>
           </div>
           <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 border border-slate-300 hover:border-slate-400 px-3 py-2 rounded-lg transition-colors">
             <LogOut className="w-4 h-4" />
@@ -265,58 +273,68 @@ export default function MedecinInterface() {
           </div>
         )}
 
-        {/* Formulaire d'ajout */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
-          <h2 className="text-xl font-semibold text-slate-800 mb-4 flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-blue-600" />
-            Nouveau Patient
-          </h2>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nom</label>
-              <input type="text" required value={formData.nom} onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Nom du patient" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Prénom</label>
-              <input type="text" required value={formData.prenom} onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Prénom" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Âge</label>
-              <input type="number" required min="0" max="120" value={formData.age} onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Âge" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Téléphone</label>
-              <input type="tel" required value={formData.telephone} onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="06 12 34 56 78" />
-            </div>
-            <div className="md:col-span-2 lg:col-span-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Motif</label>
-              <select value={formData.motif} onChange={(e) => setFormData({ ...formData, motif: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="premier_contact">Premier contact</option>
-                <option value="controle">Contrôle</option>
-              </select>
-            </div>
-            <div className="md:col-span-2 lg:col-span-3">
-              <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl">
-                Ajouter le patient à la file
-              </button>
-            </div>
-          </form>
+        {/* Vue lecture seule pour médecin */}
+        {!isAssistante && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-3 mb-6 flex items-center gap-3">
+            <span className="text-blue-600 text-lg">👁</span>
+            <p className="text-sm text-blue-700 font-medium">Vue en lecture seule — seule l'assistante peut gérer la file d'attente.</p>
+          </div>
+        )}
 
-          {generatedCode && (
-            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl">
-              <p className="text-green-800 font-semibold text-center">
-                ✅ Patient ajouté ! Code généré : <span className="text-3xl font-bold ml-2 text-green-600">{generatedCode}</span>
-              </p>
-              <p className="text-sm text-green-600 text-center mt-2">Communiquez ce code au patient</p>
-              <button onClick={() => setGeneratedCode(null)} className="mt-3 mx-auto block text-sm text-green-700 hover:text-green-800 underline">Fermer</button>
-            </div>
-          )}
-        </div>
+        {/* Formulaire d'ajout — assistante uniquement */}
+        {isAssistante && (
+          <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
+            <h2 className="text-xl font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-blue-600" />
+              Nouveau Patient
+            </h2>
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nom</label>
+                <input type="text" required value={formData.nom} onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Nom du patient" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Prénom</label>
+                <input type="text" required value={formData.prenom} onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Prénom" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Âge</label>
+                <input type="number" required min="0" max="120" value={formData.age} onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Âge" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Téléphone</label>
+                <input type="tel" required value={formData.telephone} onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="06 12 34 56 78" />
+              </div>
+              <div className="md:col-span-2 lg:col-span-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Motif</label>
+                <select value={formData.motif} onChange={(e) => setFormData({ ...formData, motif: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                  <option value="premier_contact">Premier contact</option>
+                  <option value="controle">Contrôle</option>
+                </select>
+              </div>
+              <div className="md:col-span-2 lg:col-span-3">
+                <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl">
+                  Ajouter le patient à la file
+                </button>
+              </div>
+            </form>
+
+            {generatedCode && (
+              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+                <p className="text-green-800 font-semibold text-center">
+                  ✅ Patient ajouté ! Code généré : <span className="text-3xl font-bold ml-2 text-green-600">{generatedCode}</span>
+                </p>
+                <p className="text-sm text-green-600 text-center mt-2">Communiquez ce code au patient</p>
+                <button onClick={() => setGeneratedCode(null)} className="mt-3 mx-auto block text-sm text-green-700 hover:text-green-800 underline">Fermer</button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Bouton Bilan */}
         <div className="mb-6 flex justify-end">
@@ -372,10 +390,12 @@ export default function MedecinInterface() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-2xl shadow-xl p-6">
             <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-amber-500" />File d'attente ({enAttente.length})</h3>
-            <button onClick={callNext} disabled={enAttente.length === 0 || enConsult.length > 0}
-              className={`w-full mb-4 py-3 rounded-lg font-semibold transition-all ${enAttente.length === 0 || enConsult.length > 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-lg hover:shadow-xl'}`}>
-              {enConsult.length > 0 ? '⚠ Consultation en cours' : '📢 Appeler le suivant'}
-            </button>
+            {isAssistante && (
+              <button onClick={callNext} disabled={enAttente.length === 0 || enConsult.length > 0}
+                className={`w-full mb-4 py-3 rounded-lg font-semibold transition-all ${enAttente.length === 0 || enConsult.length > 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-lg hover:shadow-xl'}`}>
+                {enConsult.length > 0 ? '⚠ Consultation en cours' : '📢 Appeler le suivant'}
+              </button>
+            )}
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {enAttente.map((patient, index) => (
                 <div key={patient.id} className="p-4 bg-amber-50 rounded-xl border border-amber-100">
@@ -396,10 +416,12 @@ export default function MedecinInterface() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <button onClick={() => changerStatut(patient.id, 'en_consultation')} disabled={enConsult.length > 0} className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50" title="Appeler"><Phone className="w-4 h-4" /></button>
-                      <button onClick={() => demanderConfirmation(patient, 'annule')} className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600" title="Annuler"><Trash2 className="w-4 h-4" /></button>
-                    </div>
+                    {isAssistante && (
+                      <div className="flex flex-col gap-2">
+                        <button onClick={() => changerStatut(patient.id, 'en_consultation')} disabled={enConsult.length > 0} className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50" title="Appeler"><Phone className="w-4 h-4" /></button>
+                        <button onClick={() => demanderConfirmation(patient, 'annule')} className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600" title="Annuler"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -424,10 +446,12 @@ export default function MedecinInterface() {
                         <div className="flex items-center gap-2 text-blue-600"><Clock className="w-4 h-4" />Depuis : {patient.heure_appel ? getDureeConsultation(patient.heure_appel) : 0} min</div>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <button onClick={() => demanderConfirmation(patient, 'termine')} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600" title="Terminer"><CheckCircle className="w-4 h-4" /></button>
-                      <button onClick={() => changerStatut(patient.id, 'en_attente')} className="p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600" title="Remettre en attente"><RotateCcw className="w-4 h-4" /></button>
-                    </div>
+                    {isAssistante && (
+                      <div className="flex flex-col gap-2">
+                        <button onClick={() => demanderConfirmation(patient, 'termine')} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600" title="Terminer"><CheckCircle className="w-4 h-4" /></button>
+                        <button onClick={() => changerStatut(patient.id, 'en_attente')} className="p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600" title="Remettre en attente"><RotateCcw className="w-4 h-4" /></button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

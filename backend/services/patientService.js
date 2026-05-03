@@ -5,12 +5,12 @@ const { AppError } = require('../errors');
 const ALLOWED_STATUSES = ['en_attente', 'en_consultation', 'termine', 'annule'];
 const ALLOWED_MOTIFS = ['premier_contact', 'controle'];
 
-const generateUniqueCode = async (medecinId) => {
+const generateUniqueCode = async (cabinetCode) => {
   let code;
   let exists = true;
   while (exists) {
     code = Math.floor(1000 + Math.random() * 9000).toString();
-    const existingPatient = await repository.findByCodeToday(code, medecinId);
+    const existingPatient = await repository.findByCodeToday(code, cabinetCode);
     exists = Boolean(existingPatient);
   }
   return code;
@@ -37,17 +37,17 @@ const validatePatientPayload = ({ nom, prenom, age, telephone, motif }) => {
   };
 };
 
-const addPatient = async (payload, medecinId) => {
+const addPatient = async (payload, medecinId, cabinetCode) => {
   const safePayload = validatePatientPayload(payload);
-  const code = await generateUniqueCode(medecinId);
+  const code = await generateUniqueCode(cabinetCode);
   return repository.createPatient({ ...safePayload, code, medecinId });
 };
 
-const getDashboard = async (medecinId) => {
+const getDashboard = async (cabinetCode) => {
   const [patients, historique, stats] = await Promise.all([
-    repository.getPatientsForToday(medecinId),
-    repository.getHistoryForToday(medecinId),
-    repository.getStatsForToday(medecinId),
+    repository.getPatientsForToday(cabinetCode),
+    repository.getHistoryForToday(cabinetCode),
+    repository.getStatsForToday(cabinetCode),
   ]);
   return {
     enAttente: patients.filter((p) => p.statut === 'en_attente'),
@@ -57,24 +57,24 @@ const getDashboard = async (medecinId) => {
   };
 };
 
-const callNextPatient = async (medecinId) => {
-  const patientInConsultation = await repository.getPatientInConsultation(medecinId);
+const callNextPatient = async (cabinetCode) => {
+  const patientInConsultation = await repository.getPatientInConsultation(cabinetCode);
   if (patientInConsultation) {
     throw new AppError('Un patient est déjà en consultation', 400);
   }
-  const nextPatient = await repository.getNextWaitingPatient(medecinId);
+  const nextPatient = await repository.getNextWaitingPatient(cabinetCode);
   if (!nextPatient) {
     throw new AppError('Aucun patient en attente', 404);
   }
-  await repository.updatePatientStatus(nextPatient.id, 'en_consultation', medecinId);
+  await repository.updatePatientStatus(nextPatient.id, 'en_consultation', cabinetCode);
   return nextPatient;
 };
 
-const updateStatus = async (id, statut, medecinId) => {
+const updateStatus = async (id, statut, cabinetCode) => {
   if (!ALLOWED_STATUSES.includes(statut)) {
     throw new AppError('Statut invalide', 400);
   }
-  const patient = await repository.updatePatientStatus(id, statut, medecinId);
+  const patient = await repository.updatePatientStatus(id, statut, cabinetCode);
   if (!patient) {
     throw new AppError('Patient non trouvé', 404);
   }
@@ -105,8 +105,8 @@ const verifyPatient = async ({ code, telephone, cabinet_code }) => {
   }
 
   const [position, dureeMoyenne] = await Promise.all([
-    repository.countWaitingBefore(patient.heure_arrivee, medecin.id),
-    repository.getAverageConsultationDuration(medecin.id),
+    repository.countWaitingBefore(patient.heure_arrivee, cabinet_code.toUpperCase()),
+    repository.getAverageConsultationDuration(cabinet_code.toUpperCase()),
   ]);
 
   return {
@@ -119,6 +119,6 @@ const verifyPatient = async ({ code, telephone, cabinet_code }) => {
   };
 };
 
-const getDailyBilan = async (medecinId) => repository.getDailyBilan(medecinId);
+const getDailyBilan = async (cabinetCode) => repository.getDailyBilan(cabinetCode);
 
 module.exports = { addPatient, getDashboard, callNextPatient, updateStatus, verifyPatient, getDailyBilan };

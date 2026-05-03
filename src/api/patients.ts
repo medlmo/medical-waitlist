@@ -8,6 +8,7 @@ export interface Medecin {
   prenom: string;
   nom_cabinet: string;
   cabinet_code: string;
+  role: 'medecin' | 'assistante';
   created_at: string;
 }
 

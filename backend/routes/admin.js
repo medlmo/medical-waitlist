@@ -7,7 +7,6 @@ const { requireAdmin } = require('../middleware/adminAuth');
 const { asyncHandler, AppError } = require('../errors');
 
 const router = express.Router();
-
 const JWT_SECRET = () => process.env.JWT_SECRET || 'fallback-secret-change-me';
 
 router.post(
@@ -41,11 +40,20 @@ router.get(
   })
 );
 
+router.get(
+  '/cabinets',
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const cabinets = await medecinRepository.getCabinets();
+    res.json({ success: true, cabinets });
+  })
+);
+
 router.post(
   '/medecins',
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const { medecin, token } = await medecinService.register(req.body);
+    const { medecin } = await medecinService.register(req.body);
     res.status(201).json({ success: true, medecin });
   })
 );
@@ -55,7 +63,7 @@ router.delete(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const deleted = await medecinRepository.deleteMedecin(req.params.id);
-    if (!deleted) throw new AppError('Médecin non trouvé', 404);
+    if (!deleted) throw new AppError('Compte non trouvé', 404);
     res.json({ success: true, deleted });
   })
 );
@@ -68,7 +76,7 @@ router.patch(
     if (!password || password.length < 6) throw new AppError('Mot de passe trop court (6 caractères minimum)', 400);
     const hash = await bcrypt.hash(password, 12);
     const updated = await medecinRepository.updatePassword(req.params.id, hash);
-    if (!updated) throw new AppError('Médecin non trouvé', 404);
+    if (!updated) throw new AppError('Compte non trouvé', 404);
     res.json({ success: true, updated });
   })
 );

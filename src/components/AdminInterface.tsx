@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Shield, Plus, Trash2, KeyRound, LogOut, RefreshCw, Users, X, Check, Eye, EyeOff, Building2, Copy, QrCode } from 'lucide-react';
 import { adminApi, getAdminToken, setAdminToken, clearAdminToken, type MedecinWithStats } from '../api/admin';
 import { getApiErrorMessage } from '../api/http';
@@ -15,17 +15,23 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ email: '', password: '', nom: '', prenom: '', nom_cabinet: '' });
+  const [role, setRole] = useState<'medecin' | 'assistante'>('medecin');
+  const [form, setForm] = useState({ email: '', password: '', nom: '', prenom: '', nom_cabinet: '', cabinet_code: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cabinets, setCabinets] = useState<{ cabinet_code: string; nom_cabinet: string }[]>([]);
+
+  useEffect(() => {
+    adminApi.getCabinets().then(setCabinets).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      await adminApi.createMedecin(form);
+      await adminApi.createMedecin({ ...form, role });
       onCreated();
       onClose();
     } catch (err) {
@@ -39,31 +45,65 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold text-slate-800">Nouveau compte médecin</h3>
+          <h3 className="text-lg font-bold text-slate-800">Nouveau compte</h3>
           <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
+
+        {/* Sélecteur de rôle */}
+        <div className="flex rounded-xl bg-slate-100 p-1 mb-4">
+          <button type="button" onClick={() => setRole('medecin')}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${role === 'medecin' ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}>
+            🩺 Médecin
+          </button>
+          <button type="button" onClick={() => setRole('assistante')}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${role === 'assistante' ? 'bg-white shadow text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}>
+            🗂 Assistante
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Prénom</label>
               <input required value={form.prenom} onChange={e => setForm({ ...form, prenom: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Jean" />
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Marie" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Nom</label>
               <input required value={form.nom} onChange={e => setForm({ ...form, nom: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Dupont" />
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Martin" />
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Nom du cabinet</label>
-            <input required value={form.nom_cabinet} onChange={e => setForm({ ...form, nom_cabinet: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Cabinet Médical du Centre" />
-          </div>
+
+          {role === 'medecin' ? (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Nom du cabinet</label>
+              <input required value={form.nom_cabinet} onChange={e => setForm({ ...form, nom_cabinet: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Cabinet Médical du Centre" />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Cabinet rattaché</label>
+              {cabinets.length > 0 ? (
+                <select required value={form.cabinet_code} onChange={e => setForm({ ...form, cabinet_code: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                  <option value="">— Sélectionner un cabinet —</option>
+                  {cabinets.map(c => (
+                    <option key={c.cabinet_code} value={c.cabinet_code}>{c.nom_cabinet} ({c.cabinet_code})</option>
+                  ))}
+                </select>
+              ) : (
+                <div className="px-3 py-2 border border-amber-200 bg-amber-50 rounded-lg text-sm text-amber-700">
+                  Aucun cabinet médecin disponible. Créez d'abord un compte médecin.
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
             <input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="medecin@cabinet.fr" />
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder={role === 'medecin' ? 'medecin@cabinet.fr' : 'assistante@cabinet.fr'} />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Mot de passe provisoire</label>
@@ -79,7 +119,8 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors">Annuler</button>
-            <button type="submit" disabled={loading} className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors disabled:opacity-60">
+            <button type="submit" disabled={loading || (role === 'assistante' && cabinets.length === 0)}
+              className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors disabled:opacity-60">
               {loading ? 'Création...' : 'Créer le compte'}
             </button>
           </div>
@@ -329,12 +370,12 @@ export default function AdminInterface() {
         {/* Actions */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold text-slate-700 flex items-center gap-2">
-            <Users className="w-5 h-5" /> Comptes médecins
+            <Users className="w-5 h-5" /> Comptes
           </h2>
           <button onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow transition-colors text-sm">
             <Plus className="w-4 h-4" />
-            Nouveau médecin
+            Nouveau compte
           </button>
         </div>
 
@@ -364,7 +405,14 @@ export default function AdminInterface() {
                   {medecins.map(m => (
                     <tr key={m.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-4">
-                        <div className="font-semibold text-slate-800">Dr {m.prenom} {m.nom}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-semibold text-slate-800">{m.role === 'medecin' ? `Dr ${m.prenom} ${m.nom}` : `${m.prenom} ${m.nom}`}</div>
+                          {m.role === 'medecin' ? (
+                            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-semibold shrink-0">🩺 Médecin</span>
+                          ) : (
+                            <span className="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full font-semibold shrink-0">🗂 Assistante</span>
+                          )}
+                        </div>
                         <div className="text-xs text-slate-500">{m.email}</div>
                       </td>
                       <td className="px-5 py-4">
@@ -377,14 +425,18 @@ export default function AdminInterface() {
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <div className="flex items-center gap-1 max-w-48">
-                          <span className="text-xs text-slate-500 truncate">{patientUrl(m.cabinet_code)}</span>
-                          <CopyButton text={patientUrl(m.cabinet_code)} />
-                          <button onClick={() => setQrTarget(m)} title="Afficher le QR Code"
-                            className="p-1 rounded hover:bg-slate-200 transition-colors shrink-0">
-                            <QrCode className="w-3.5 h-3.5 text-indigo-500" />
-                          </button>
-                        </div>
+                        {m.role === 'medecin' ? (
+                          <div className="flex items-center gap-1 max-w-48">
+                            <span className="text-xs text-slate-500 truncate">{patientUrl(m.cabinet_code)}</span>
+                            <CopyButton text={patientUrl(m.cabinet_code)} />
+                            <button onClick={() => setQrTarget(m)} title="Afficher le QR Code"
+                              className="p-1 rounded hover:bg-slate-200 transition-colors shrink-0">
+                              <QrCode className="w-3.5 h-3.5 text-indigo-500" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-center">
                         <div className="flex items-center justify-center gap-3 text-sm">
