@@ -57,6 +57,14 @@ const initDB = async () => {
         ) THEN
           ALTER TABLE medecins ADD COLUMN role VARCHAR(20) DEFAULT 'assistante' NOT NULL;
         END IF;
+        IF EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE table_name = 'medecins'
+            AND constraint_name = 'medecins_cabinet_code_key'
+            AND constraint_type = 'UNIQUE'
+        ) THEN
+          ALTER TABLE medecins DROP CONSTRAINT medecins_cabinet_code_key;
+        END IF;
       END$$;
     `);
 
