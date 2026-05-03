@@ -326,7 +326,7 @@ export default function AdminInterface() {
       {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreated={loadMedecins} />}
       {resetTarget && <ResetPasswordModal medecin={resetTarget} onClose={() => setResetTarget(null)} />}
       {deleteTarget && <DeleteConfirmModal medecin={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={loadMedecins} />}
-      {qrTarget && <QRCodeModal url={patientUrl(qrTarget.cabinet_code)} title={qrTarget.nom_cabinet} subtitle={`Dr ${qrTarget.prenom} ${qrTarget.nom}`} onClose={() => setQrTarget(null)} />}
+      {qrTarget && <QRCodeModal url={patientUrl(qrTarget.cabinet_code)} title={qrTarget.nom_cabinet} onClose={() => setQrTarget(null)} />}
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Header */}

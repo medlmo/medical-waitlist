@@ -227,7 +227,7 @@ export default function MedecinInterface() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {showQR && medecin && <QRCodeModal url={patientUrl} title={medecin.nom_cabinet} subtitle={`Dr ${medecin.prenom} ${medecin.nom}`} onClose={() => setShowQR(false)} />}
+      {showQR && medecin && <QRCodeModal url={patientUrl} title={medecin.nom_cabinet} onClose={() => setShowQR(false)} />}
       {confirmation && <ConfirmModal action={confirmation} onConfirm={confirmerAction} onCancel={() => setConfirmation(null)} />}
 
       <div className="container mx-auto px-4 py-8 max-w-6xl">
