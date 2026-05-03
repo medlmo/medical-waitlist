@@ -49,6 +49,9 @@ export default function Home() {
 
         <div className="mt-12 text-center text-slate-500 text-sm">
           <p>© {new Date().getFullYear()} File d'attente Médicale</p>
+          <a href="/admin" className="mt-2 inline-block text-xs text-slate-400 hover:text-slate-600 transition-colors underline underline-offset-2">
+            Accès administrateur
+          </a>
         </div>
       </div>
     </div>

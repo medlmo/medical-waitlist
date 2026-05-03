@@ -36,4 +36,38 @@ const createMedecin = async ({ email, password_hash, nom, prenom, nom_cabinet, c
   return result.rows[0];
 };
 
-module.exports = { findByEmail, findById, findByCabinetCode, cabinetCodeExists, createMedecin };
+const getAllMedecins = async () => {
+  const result = await pool.query(
+    `SELECT m.id, m.email, m.nom, m.prenom, m.nom_cabinet, m.cabinet_code, m.created_at,
+            COUNT(p.id) FILTER (WHERE p.statut = 'en_attente') AS en_attente,
+            COUNT(p.id) FILTER (WHERE p.statut = 'en_consultation') AS en_consultation,
+            COUNT(p.id) FILTER (WHERE DATE(p.heure_arrivee) = CURRENT_DATE) AS patients_today
+     FROM medecins m
+     LEFT JOIN patients p ON p.medecin_id = m.id
+     GROUP BY m.id
+     ORDER BY m.created_at DESC`
+  );
+  return result.rows;
+};
+
+const deleteMedecin = async (id) => {
+  await pool.query('DELETE FROM patients WHERE medecin_id = $1', [id]);
+  const result = await pool.query(
+    'DELETE FROM medecins WHERE id = $1 RETURNING id, email, nom, prenom',
+    [id]
+  );
+  return result.rows[0] || null;
+};
+
+const updatePassword = async (id, password_hash) => {
+  const result = await pool.query(
+    'UPDATE medecins SET password_hash = $1 WHERE id = $2 RETURNING id, email',
+    [password_hash, id]
+  );
+  return result.rows[0] || null;
+};
+
+module.exports = {
+  findByEmail, findById, findByCabinetCode, cabinetCodeExists,
+  createMedecin, getAllMedecins, deleteMedecin, updatePassword,
+};

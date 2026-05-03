@@ -41,38 +41,20 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function AuthScreen({ onAuth }: { onAuth: (medecin: Medecin, token: string) => void }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
-  const [registerForm, setRegisterForm] = useState({ email: '', password: '', nom: '', prenom: '', nom_cabinet: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const { medecin, token } = await authApi.login(loginForm.email, loginForm.password);
+      const { medecin, token } = await authApi.login(form.email, form.password);
       setDoctorToken(token);
       onAuth(medecin, token);
     } catch (err) {
       setError(getApiErrorMessage(err, 'Email ou mot de passe incorrect.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const { medecin, token } = await authApi.register(registerForm);
-      setDoctorToken(token);
-      onAuth(medecin, token);
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Erreur lors de la création du compte."));
     } finally {
       setLoading(false);
     }
@@ -86,71 +68,28 @@ function AuthScreen({ onAuth }: { onAuth: (medecin: Medecin, token: string) => v
             <Lock className="w-8 h-8 text-blue-600" />
           </div>
           <h1 className="text-2xl font-bold text-slate-800">Espace Médecin</h1>
+          <p className="text-sm text-slate-500 mt-1">Connectez-vous à votre compte</p>
         </div>
-
-        <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
-          <button onClick={() => { setMode('login'); setError(''); }} className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === 'login' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>
-            Connexion
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <input type="email" required autoFocus value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="medecin@cabinet.fr" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Mot de passe</label>
+            <input type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="••••••••" />
+          </div>
+          {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
+          <button type="submit" disabled={loading}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-60">
+            {loading ? 'Connexion...' : 'Se connecter'}
           </button>
-          <button onClick={() => { setMode('register'); setError(''); }} className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === 'register' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>
-            Créer un compte
-          </button>
-        </div>
-
-        {mode === 'login' ? (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-              <input type="email" required autoFocus value={loginForm.email} onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="medecin@cabinet.fr" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Mot de passe</label>
-              <input type="password" required value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="••••••••" />
-            </div>
-            {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
-            <button type="submit" disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-60">
-              {loading ? 'Connexion...' : 'Se connecter'}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Prénom</label>
-                <input type="text" required value={registerForm.prenom} onChange={(e) => setRegisterForm({ ...registerForm, prenom: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Jean" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nom</label>
-                <input type="text" required value={registerForm.nom} onChange={(e) => setRegisterForm({ ...registerForm, nom: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Dupont" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nom du cabinet</label>
-              <input type="text" required value={registerForm.nom_cabinet} onChange={(e) => setRegisterForm({ ...registerForm, nom_cabinet: e.target.value })}
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Cabinet Médical du Centre" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-              <input type="email" required value={registerForm.email} onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="medecin@cabinet.fr" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Mot de passe</label>
-              <input type="password" required minLength={6} value={registerForm.password} onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="6 caractères minimum" />
-            </div>
-            {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
-            <button type="submit" disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-60">
-              {loading ? 'Création...' : 'Créer mon compte'}
-            </button>
-          </form>
-        )}
+        </form>
+        <p className="text-center text-xs text-slate-400 mt-6">
+          Votre compte est créé par l'administrateur du cabinet.
+        </p>
       </div>
     </div>
   );

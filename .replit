@@ -11,6 +11,8 @@ channel = "stable-25_05"
 [userenv.shared]
 DOCTOR_PIN = "1234"
 JWT_SECRET = "182a88ae8c0efaf4d9f308d0e10ba122616d3e7bc5f9e1351899cee2354a263948c8623f6954983c1647f4c96d2ff3c9"
+ADMIN_EMAIL = "admin@medical.fr"
+ADMIN_PASSWORD = "Admin2024!"
 
 [userenv.development]
 PORT = "3001"

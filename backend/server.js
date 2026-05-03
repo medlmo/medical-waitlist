@@ -5,6 +5,7 @@ const fs = require('fs');
 const { initDB } = require('./db');
 const patientRoutes = require('./routes/patients');
 const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/admin');
 const { errorMiddleware } = require('./errors');
 require('dotenv').config();
 
@@ -34,6 +35,7 @@ app.use(cors({
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api', patientRoutes);
 app.use(errorMiddleware);
 
