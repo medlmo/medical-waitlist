@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, Plus, Trash2, KeyRound, LogOut, RefreshCw, Users, X, Check, Eye, EyeOff, Building2, Copy } from 'lucide-react';
+import { Shield, Plus, Trash2, KeyRound, LogOut, RefreshCw, Users, X, Check, Eye, EyeOff, Building2, Copy, QrCode } from 'lucide-react';
 import { adminApi, getAdminToken, setAdminToken, clearAdminToken, type MedecinWithStats } from '../api/admin';
 import { getApiErrorMessage } from '../api/http';
+import QRCodeModal from './QRCodeModal';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -249,6 +250,7 @@ export default function AdminInterface() {
   const [showCreate, setShowCreate] = useState(false);
   const [resetTarget, setResetTarget] = useState<MedecinWithStats | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MedecinWithStats | null>(null);
+  const [qrTarget, setQrTarget] = useState<MedecinWithStats | null>(null);
 
   useEffect(() => {
     const token = getAdminToken();
@@ -283,6 +285,7 @@ export default function AdminInterface() {
       {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreated={loadMedecins} />}
       {resetTarget && <ResetPasswordModal medecin={resetTarget} onClose={() => setResetTarget(null)} />}
       {deleteTarget && <DeleteConfirmModal medecin={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={loadMedecins} />}
+      {qrTarget && <QRCodeModal url={patientUrl(qrTarget.cabinet_code)} title={qrTarget.nom_cabinet} subtitle={`Dr ${qrTarget.prenom} ${qrTarget.nom}`} onClose={() => setQrTarget(null)} />}
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Header */}
@@ -377,6 +380,10 @@ export default function AdminInterface() {
                         <div className="flex items-center gap-1 max-w-48">
                           <span className="text-xs text-slate-500 truncate">{patientUrl(m.cabinet_code)}</span>
                           <CopyButton text={patientUrl(m.cabinet_code)} />
+                          <button onClick={() => setQrTarget(m)} title="Afficher le QR Code"
+                            className="p-1 rounded hover:bg-slate-200 transition-colors shrink-0">
+                            <QrCode className="w-3.5 h-3.5 text-indigo-500" />
+                          </button>
                         </div>
                       </td>
                       <td className="px-5 py-4 text-center">

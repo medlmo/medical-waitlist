@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { UserPlus, Phone, Calendar, User, Trash2, CheckCircle, RotateCcw, Users, Clock, BarChart3, UserCheck, RefreshCw, AlertTriangle, X, Lock, LogOut, Copy, Check, Building2 } from 'lucide-react';
+import { UserPlus, Phone, Calendar, User, Trash2, CheckCircle, RotateCcw, Users, Clock, BarChart3, UserCheck, RefreshCw, AlertTriangle, X, Lock, LogOut, Copy, Check, Building2, QrCode } from 'lucide-react';
 import { getApiErrorMessage, getDoctorToken, setDoctorToken, clearDoctorToken } from '../api/http';
 import { authApi, patientsApi, type Patient, type Stats, type Bilan, type Medecin } from '../api/patients';
+import QRCodeModal from './QRCodeModal';
 
 type ConfirmAction = { patientId: number; statut: 'annule' | 'termine'; patientName: string };
 
@@ -217,6 +218,8 @@ export default function MedecinInterface() {
     await changerStatut(confirmation.patientId, confirmation.statut);
   };
 
+  const [showQR, setShowQR] = useState(false);
+
   const handleLogout = () => { clearDoctorToken(); setAuthenticated(false); setMedecin(null); };
 
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -224,6 +227,7 @@ export default function MedecinInterface() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {showQR && medecin && <QRCodeModal url={patientUrl} title={medecin.nom_cabinet} subtitle={`Dr ${medecin.prenom} ${medecin.nom}`} onClose={() => setShowQR(false)} />}
       {confirmation && <ConfirmModal action={confirmation} onConfirm={confirmerAction} onCancel={() => setConfirmation(null)} />}
 
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -248,6 +252,10 @@ export default function MedecinInterface() {
               <p className="text-sm font-mono text-slate-700 truncate">{patientUrl}</p>
             </div>
             <CopyButton text={patientUrl} />
+            <button onClick={() => setShowQR(true)} title="Afficher le QR Code"
+              className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors shrink-0">
+              <QrCode className="w-4 h-4 text-indigo-500" />
+            </button>
           </div>
         )}
 
