@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Shield, Plus, Trash2, KeyRound, LogOut, RefreshCw, Users, X, Check, Eye, EyeOff, Building2, Copy, QrCode } from 'lucide-react';
+import { Shield, Plus, Trash2, KeyRound, LogOut, RefreshCw, Users, X, Check, Eye, EyeOff, Building2, Copy, QrCode, Pencil } from 'lucide-react';
 import { adminApi, getAdminToken, setAdminToken, clearAdminToken, type MedecinWithStats } from '../api/admin';
 import { getApiErrorMessage } from '../api/http';
 import QRCodeModal from './QRCodeModal';
@@ -231,6 +231,80 @@ function DeleteConfirmModal({ medecin, onClose, onDeleted }: { medecin: MedecinW
   );
 }
 
+function EditModal({ medecin, onClose, onUpdated }: { medecin: MedecinWithStats; onClose: () => void; onUpdated: () => void }) {
+  const [form, setForm] = useState({
+    prenom: medecin.prenom,
+    nom: medecin.nom,
+    email: medecin.email,
+    nom_cabinet: medecin.nom_cabinet,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      await adminApi.updateMedecin(medecin.id, form);
+      onUpdated();
+      onClose();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Erreur lors de la modification.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-bold text-slate-800">Modifier le compte</h3>
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X className="w-5 h-5" /></button>
+        </div>
+        <p className="text-xs text-slate-500 mb-4 flex items-center gap-1">
+          {medecin.role === 'medecin'
+            ? <><span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-semibold">🩺 Médecin</span></>
+            : <><span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full font-semibold">🗂 Assistante</span></>}
+          <span className="ml-1 font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500">{medecin.cabinet_code}</span>
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Prénom</label>
+              <input required value={form.prenom} onChange={e => setForm({ ...form, prenom: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Nom</label>
+              <input required value={form.nom} onChange={e => setForm({ ...form, nom: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
+            <input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Nom du cabinet</label>
+            <input required value={form.nom_cabinet} onChange={e => setForm({ ...form, nom_cabinet: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+          </div>
+          {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors">Annuler</button>
+            <button type="submit" disabled={loading} className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors disabled:opacity-60">
+              {loading ? 'Enregistrement...' : 'Enregistrer'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function AdminLogin({ onAuth }: { onAuth: (token: string) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -291,6 +365,7 @@ export default function AdminInterface() {
   const [showCreate, setShowCreate] = useState(false);
   const [resetTarget, setResetTarget] = useState<MedecinWithStats | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MedecinWithStats | null>(null);
+  const [editTarget, setEditTarget] = useState<MedecinWithStats | null>(null);
   const [qrTarget, setQrTarget] = useState<MedecinWithStats | null>(null);
 
   useEffect(() => {
@@ -326,6 +401,7 @@ export default function AdminInterface() {
       {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreated={loadMedecins} />}
       {resetTarget && <ResetPasswordModal medecin={resetTarget} onClose={() => setResetTarget(null)} />}
       {deleteTarget && <DeleteConfirmModal medecin={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={loadMedecins} />}
+      {editTarget && <EditModal medecin={editTarget} onClose={() => setEditTarget(null)} onUpdated={loadMedecins} />}
       {qrTarget && <QRCodeModal url={patientUrl(qrTarget.cabinet_code)} title={qrTarget.nom_cabinet} onClose={() => setQrTarget(null)} />}
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
@@ -352,18 +428,14 @@ export default function AdminInterface() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow p-4 text-center">
-            <div className="text-3xl font-bold text-indigo-600">{medecins.length}</div>
-            <div className="text-sm text-slate-500 mt-1">Médecin(s)</div>
+            <div className="text-3xl font-bold text-blue-600">{medecins.filter(m => m.role === 'medecin').length}</div>
+            <div className="text-sm text-slate-500 mt-1">🩺 Médecin(s)</div>
           </div>
           <div className="bg-white rounded-xl shadow p-4 text-center">
-            <div className="text-3xl font-bold text-amber-500">{medecins.reduce((s, m) => s + Number(m.en_attente), 0)}</div>
-            <div className="text-sm text-slate-500 mt-1">En attente</div>
-          </div>
-          <div className="bg-white rounded-xl shadow p-4 text-center">
-            <div className="text-3xl font-bold text-green-500">{medecins.reduce((s, m) => s + Number(m.patients_today), 0)}</div>
-            <div className="text-sm text-slate-500 mt-1">Patients aujourd'hui</div>
+            <div className="text-3xl font-bold text-indigo-600">{medecins.filter(m => m.role === 'assistante').length}</div>
+            <div className="text-sm text-slate-500 mt-1">🗂 Assistante(s)</div>
           </div>
         </div>
 
@@ -447,6 +519,10 @@ export default function AdminInterface() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => setEditTarget(m)} title="Modifier le compte"
+                            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
+                            <Pencil className="w-4 h-4" />
+                          </button>
                           <button onClick={() => setResetTarget(m)} title="Réinitialiser le mot de passe"
                             className="p-2 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors">
                             <KeyRound className="w-4 h-4" />

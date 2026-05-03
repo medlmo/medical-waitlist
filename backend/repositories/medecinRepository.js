@@ -81,7 +81,21 @@ const updatePassword = async (id, password_hash) => {
   return result.rows[0] || null;
 };
 
+const updateMedecin = async (id, { nom, prenom, email, nom_cabinet }) => {
+  const result = await pool.query(
+    `UPDATE medecins SET
+       nom = COALESCE($1, nom),
+       prenom = COALESCE($2, prenom),
+       email = COALESCE($3, email),
+       nom_cabinet = COALESCE($4, nom_cabinet)
+     WHERE id = $5
+     RETURNING id, email, nom, prenom, nom_cabinet, cabinet_code, role, created_at`,
+    [nom || null, prenom || null, email ? email.toLowerCase() : null, nom_cabinet || null, id]
+  );
+  return result.rows[0] || null;
+};
+
 module.exports = {
   findByEmail, findById, findByCabinetCode, cabinetCodeExists,
-  createMedecin, getAllMedecins, getCabinets, deleteMedecin, updatePassword,
+  createMedecin, getAllMedecins, getCabinets, deleteMedecin, updatePassword, updateMedecin,
 };

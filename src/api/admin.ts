@@ -46,6 +46,10 @@ export const adminApi = {
     const res = await adminClient.post('/medecins', payload);
     return res.data.medecin as Medecin;
   },
+  async updateMedecin(id: number, payload: { nom?: string; prenom?: string; email?: string; nom_cabinet?: string }) {
+    const res = await adminClient.patch(`/medecins/${id}`, payload);
+    return res.data.medecin as Medecin;
+  },
   async deleteMedecin(id: number) {
     await adminClient.delete(`/medecins/${id}`);
   },

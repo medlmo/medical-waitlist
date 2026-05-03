@@ -69,6 +69,23 @@ router.delete(
 );
 
 router.patch(
+  '/medecins/:id',
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { nom, prenom, email, nom_cabinet } = req.body;
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) throw new AppError('Email invalide', 400);
+      const existing = await medecinRepository.findByEmail(email.toLowerCase());
+      if (existing && existing.id !== parseInt(req.params.id)) throw new AppError('Cet email est déjà utilisé', 409);
+    }
+    const updated = await medecinRepository.updateMedecin(req.params.id, { nom, prenom, email, nom_cabinet });
+    if (!updated) throw new AppError('Compte non trouvé', 404);
+    res.json({ success: true, medecin: updated });
+  })
+);
+
+router.patch(
   '/medecins/:id/password',
   requireAdmin,
   asyncHandler(async (req, res) => {
