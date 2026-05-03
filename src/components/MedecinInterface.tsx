@@ -110,6 +110,7 @@ export default function MedecinInterface() {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackType, setFeedbackType] = useState<'error' | 'success' | ''>('');
   const [confirmation, setConfirmation] = useState<ConfirmAction | null>(null);
+  const [showQR, setShowQR] = useState(false);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -217,8 +218,6 @@ export default function MedecinInterface() {
     setConfirmation(null);
     await changerStatut(confirmation.patientId, confirmation.statut);
   };
-
-  const [showQR, setShowQR] = useState(false);
 
   const handleLogout = () => { clearDoctorToken(); setAuthenticated(false); setMedecin(null); };
 
