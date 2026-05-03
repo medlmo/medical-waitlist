@@ -413,9 +413,6 @@ export default function AdminInterface() {
           )}
         </div>
 
-        <p className="text-center text-xs text-slate-400 mt-6">
-          Les médecins se connectent sur <a href="/medecin" className="underline hover:text-slate-600">/medecin</a>
-        </p>
       </div>
     </div>
   );
