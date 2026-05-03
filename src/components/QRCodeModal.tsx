@@ -88,12 +88,6 @@ export default function QRCodeModal({ url, title, subtitle, onClose }: QRCodeMod
             size={220}
             level="H"
             includeMargin
-            imageSettings={{
-              src: '',
-              height: 0,
-              width: 0,
-              excavate: false,
-            }}
           />
         </div>
 
