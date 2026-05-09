@@ -95,14 +95,15 @@ const updatePatientStatus = async (id, statut, cabinetCode) => {
   return result.rows[0] || null;
 };
 
-const findPatientForVerification = async ({ code, phoneDigits, phoneSuffix, medecinId }) => {
+const findPatientForVerification = async ({ code, phoneDigits, phoneSuffix, cabinetCode }) => {
   const result = await pool.query(
-    `SELECT * FROM patients
-     WHERE code = $1
-     AND medecin_id = $2
-     AND (telephone = $3 OR telephone LIKE $4)
-     AND DATE(heure_arrivee) = CURRENT_DATE`,
-    [code, medecinId, phoneDigits, `%${phoneSuffix}`]
+    `SELECT p.* FROM patients p
+     JOIN medecins m ON p.medecin_id = m.id
+     WHERE p.code = $1
+     AND m.cabinet_code = $2
+     AND (p.telephone = $3 OR p.telephone LIKE $4)
+     AND DATE(p.heure_arrivee) = CURRENT_DATE`,
+    [code, cabinetCode, phoneDigits, `%${phoneSuffix}`]
   );
   return result.rows[0] || null;
 };

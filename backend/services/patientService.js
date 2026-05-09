@@ -86,7 +86,8 @@ const verifyPatient = async ({ code, telephone, cabinet_code }) => {
     throw new AppError('Code, téléphone et code cabinet requis', 400);
   }
 
-  const medecin = await medecinRepository.findByCabinetCode(cabinet_code.toUpperCase());
+  const cabinetCodeUpper = cabinet_code.toUpperCase();
+  const medecin = await medecinRepository.findByCabinetCode(cabinetCodeUpper);
   if (!medecin) {
     throw new AppError('Cabinet introuvable', 404);
   }
@@ -97,7 +98,7 @@ const verifyPatient = async ({ code, telephone, cabinet_code }) => {
     code,
     phoneDigits,
     phoneSuffix,
-    medecinId: medecin.id,
+    cabinetCode: cabinetCodeUpper,
   });
 
   if (!patient) {
