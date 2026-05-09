@@ -186,4 +186,12 @@ module.exports = {
   getStatsForToday,
   getAverageConsultationDuration,
   getDailyBilan,
+  deleteOldPatients,
 };
+
+async function deleteOldPatients() {
+  const result = await pool.query(
+    `DELETE FROM patients WHERE DATE(heure_arrivee) < CURRENT_DATE - INTERVAL '1 day'`
+  );
+  return result.rowCount;
+}

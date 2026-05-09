@@ -7,6 +7,7 @@ const patientRoutes = require('./routes/patients');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const { errorMiddleware } = require('./errors');
+const { scheduleCleanup } = require('./cleanup');
 require('dotenv').config();
 
 const app = express();
@@ -49,6 +50,7 @@ if (fs.existsSync(distPath)) {
 
 const startServer = async () => {
   await initDB();
+  scheduleCleanup();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Serveur demarre sur le port ${PORT}`);
   });
