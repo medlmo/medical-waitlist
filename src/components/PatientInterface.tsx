@@ -4,6 +4,25 @@ import { Clock, AlertCircle, CheckCircle, Users, RefreshCw } from 'lucide-react'
 import { getApiErrorMessage } from '../api/http';
 import { patientsApi, type VerificationResult } from '../api/patients';
 
+const SESSION_KEY = (cabinetCode: string) => `patient_session_${cabinetCode}`;
+
+function saveSession(cabinetCode: string, code: string, telephone: string) {
+  sessionStorage.setItem(SESSION_KEY(cabinetCode), JSON.stringify({ code, telephone }));
+}
+
+function loadSession(cabinetCode: string): { code: string; telephone: string } | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY(cabinetCode));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearSession(cabinetCode: string) {
+  sessionStorage.removeItem(SESSION_KEY(cabinetCode));
+}
+
 export default function PatientInterface() {
   const { cabinet_code } = useParams<{ cabinet_code?: string }>();
 
@@ -11,6 +30,7 @@ export default function PatientInterface() {
   const [telephone, setTelephone] = useState('');
   const [checkResult, setCheckResult] = useState<VerificationResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [autoLoading, setAutoLoading] = useState(false);
   const [error, setError] = useState('');
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [countdown, setCountdown] = useState(180);
@@ -41,9 +61,56 @@ export default function PatientInterface() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!cabinet_code) return;
+    const saved = loadSession(cabinet_code);
+    if (!saved) return;
+
+    setCode(saved.code);
+    setTelephone(saved.telephone);
+    codeRef.current = saved.code;
+    telephoneRef.current = saved.telephone;
+
+    setAutoLoading(true);
+    patientsApi.verifyPatient(saved.code, saved.telephone, cabinet_code)
+      .then((result) => {
+        setCheckResult(result);
+        setLastRefresh(new Date());
+        setCountdown(180);
+      })
+      .catch(() => {
+        clearSession(cabinet_code);
+        setCode('');
+        setTelephone('');
+      })
+      .finally(() => setAutoLoading(false));
+  }, [cabinet_code]);
+
   const handleCheck = async (e: React.FormEvent) => {
     e.preventDefault();
-    await refreshPosition(false);
+    setLoading(true);
+    setError('');
+    try {
+      const result = await patientsApi.verifyPatient(code, telephone, cabinet_code!);
+      setCheckResult(result);
+      setLastRefresh(new Date());
+      setCountdown(180);
+      saveSession(cabinet_code!, code, telephone);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Patient non trouvé. Vérifiez votre code et numéro de téléphone.'));
+      setCheckResult(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    if (cabinet_code) clearSession(cabinet_code);
+    setCheckResult(null);
+    setCode('');
+    setTelephone('');
+    setError('');
+    setLastRefresh(null);
   };
 
   useEffect(() => {
@@ -73,6 +140,17 @@ export default function PatientInterface() {
           <p className="text-slate-600">
             Veuillez utiliser le lien fourni par votre cabinet médical pour accéder à votre file d'attente.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (autoLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <RefreshCw className="w-10 h-10 text-emerald-500 animate-spin mx-auto mb-4" />
+          <p className="text-slate-600 font-medium">Récupération de votre position...</p>
         </div>
       </div>
     );
@@ -198,7 +276,7 @@ export default function PatientInterface() {
             )}
 
             <button
-              onClick={() => { setCheckResult(null); setCode(''); setTelephone(''); setError(''); setLastRefresh(null); }}
+              onClick={handleReset}
               className="w-full mt-6 py-3 border-2 border-slate-300 text-slate-600 rounded-lg font-semibold hover:bg-slate-50 transition-all"
             >
               Vérifier un autre code
