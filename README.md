@@ -1,138 +1,152 @@
-# 🏥 Gestion de File d'Attente Médicale
+# Gestion de File d'Attente Médicale
 
-Application complète de gestion de file d'attente pour cabinet médical avec :
-- Interface Médecin (`/medecin`) : Gestion des patients et de la file
-- Interface Patient (`/patient`) : Suivi de position en temps réel
-- Base de données PostgreSQL pour la persistance des données
+Application web multi-tenant de gestion de file d'attente pour cabinets médicaux. Chaque cabinet dispose de son propre espace sécurisé avec deux rôles distincts et une interface patient partageable par QR code ou lien URL.
 
-## 📁 Structure du projet
+## Interfaces
+
+| Interface | URL | Accès |
+|-----------|-----|-------|
+| Page d'accueil | `/` | Public |
+| Espace médecin / assistante | `/medecin` | JWT (login) |
+| Suivi patient | `/patient/:cabinet_code` | Public (code + téléphone) |
+| Espace administrateur | `/admin` | Identifiants admin |
+
+## Rôles
+
+**Assistante** — gère la file d'attente :
+- Ajout de patients (nom, prénom, âge, téléphone, motif)
+- Appel du patient suivant
+- Changement de statut (terminer, annuler, remettre en attente)
+- Visualisation de la file et de l'historique du jour
+
+**Médecin** — consultation en lecture seule :
+- Vue de la file d'attente et de l'historique
+- Statistiques du jour
+- Accès au QR code / lien patient
+
+**Administrateur** — gestion des comptes :
+- Création de comptes médecin et assistante
+- Modification des informations (prénom, nom, email)
+- Réinitialisation de mot de passe
+- Suppression de compte
+
+## Architecture
 
 ```
-├── src/
+├── src/                          # Frontend React + TypeScript + Vite
+│   ├── api/
+│   │   ├── http.ts               # Client Axios, helpers token JWT
+│   │   ├── patients.ts           # API patients, types TypeScript
+│   │   └── admin.ts              # API admin
 │   ├── components/
-│   │   ├── Home.tsx           # Page d'accueil avec choix d'interface
-│   │   ├── MedecinInterface.tsx  # Interface médecin
-│   │   └── PatientInterface.tsx  # Interface patient
-│   └── App.tsx
+│   │   ├── Home.tsx              # Page d'accueil
+│   │   ├── MedecinInterface.tsx  # Dashboard médecin / assistante
+│   │   ├── PatientInterface.tsx  # Suivi position patient
+│   │   └── AdminInterface.tsx    # Gestion des comptes
+│   └── App.tsx                   # Router : /, /medecin, /patient/:code, /admin
 ├── backend/
-│   ├── server.js              # Serveur Express
-│   ├── db.js                  # Configuration PostgreSQL
-│   └── package.json
-├── .env                       # Variables d'environnement
+│   ├── routes/
+│   │   ├── auth.js               # POST /api/auth/register|login, GET /api/auth/me
+│   │   ├── patients.js           # Routes dashboard et patients (JWT requis)
+│   │   └── admin.js              # Routes admin (identifiants admin requis)
+│   ├── services/
+│   │   ├── medecinService.js     # Logique register, login, getMe
+│   │   └── patientService.js     # Logique file d'attente, vérification patient
+│   ├── repositories/
+│   │   ├── medecinRepository.js  # Requêtes SQL comptes médecins
+│   │   └── patientRepository.js  # Requêtes SQL patients (scoped par cabinet_code)
+│   ├── middleware/
+│   │   ├── auth.js               # requireDoctor — vérifie JWT, injecte cabinetCode + userRole
+│   │   └── adminAuth.js          # requireAdmin — vérifie token admin
+│   ├── cleanup.js                # Job de nettoyage automatique (2h00 chaque nuit)
+│   ├── db.js                     # Pool PostgreSQL + initDB()
+│   ├── errors.js                 # AppError + asyncHandler
+│   └── server.js                 # Express app, CORS, routes, static (production)
+├── vite.config.ts                # Proxy /api → http://localhost:3001
 └── package.json
 ```
 
-## 🚀 Installation et Configuration
+## Base de données
 
-### 1. Prérequis
+```
+medecins
+  id, email, password_hash, nom, prenom, nom_cabinet,
+  cabinet_code (6 caractères, partagé par médecin + assistante du même cabinet),
+  role ('medecin' | 'assistante'), created_at
 
-- Node.js (v16+)
-- PostgreSQL (v12+)
-
-### 2. Configuration de la base de données
-
-```bash
-# Se connecter à PostgreSQL
-psql -U postgres
-
-# Créer la base de données
-CREATE DATABASE file_attente_medecin;
-
-# Quitter
-\q
+patients
+  id, medecin_id (FK), nom, prenom, age, telephone, motif,
+  code (4 chiffres, unique par jour par cabinet), statut,
+  heure_arrivee, heure_appel, heure_fin, created_at
 ```
 
-### 3. Configuration des variables d'environnement
+## Multi-tenant
 
-Créez/modifiez le fichier `.env` à la racine :
+- Chaque cabinet possède un `cabinet_code` unique à 6 caractères
+- Le médecin et l'assistante du même cabinet partagent le même `cabinet_code`
+- Toutes les requêtes patients sont scopées par `cabinet_code` via JOIN
+- Lien patient partageable : `/patient/:cabinet_code`
 
-```env
-DB_USER=postgres
-DB_HOST=localhost
-DB_NAME=file_attente_medecin
-DB_PASSWORD=votre_mot_de_passe
-DB_PORT=5432
-PORT=3001
-```
+## Nettoyage automatique des données
 
-### 4. Installation des dépendances
+Un job tourne chaque nuit à **2h00** et supprime les patients enregistrés avant la veille (J-2 et plus). Les données de J et J-1 sont conservées, ce qui laisse le temps de consulter le bilan du lendemain matin.
+
+## Persistance de session patient
+
+Quand un patient vérifie sa position, ses identifiants (code + téléphone) sont sauvegardés en `sessionStorage`. À l'actualisation de la page, sa position se recharge automatiquement sans ressaisie. La session s'efface à la fermeture de l'onglet.
+
+## API
+
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| POST | /api/auth/register | — | Créer un compte, retourne JWT |
+| POST | /api/auth/login | — | Login, retourne JWT |
+| GET | /api/auth/me | JWT | Infos compte connecté |
+| GET | /api/dashboard | JWT | File d'attente + historique + stats du jour |
+| POST | /api/patients | JWT (assistante) | Ajouter un patient |
+| POST | /api/patients/appeler-suivant | JWT (assistante) | Appeler le prochain |
+| PATCH | /api/patients/:id/statut | JWT (assistante) | Changer le statut |
+| POST | /api/patients/verifier | — | Vérification patient (code + téléphone) |
+| GET | /api/bilan | JWT | Bilan statistique du jour |
+| POST | /api/admin/login | Admin | Login administrateur |
+| GET | /api/admin/medecins | Admin JWT | Liste tous les comptes |
+| POST | /api/admin/medecins | Admin JWT | Créer un compte |
+| PATCH | /api/admin/medecins/:id | Admin JWT | Modifier un compte |
+| PATCH | /api/admin/medecins/:id/password | Admin JWT | Réinitialiser mot de passe |
+| DELETE | /api/admin/medecins/:id | Admin JWT | Supprimer un compte |
+
+## Variables d'environnement
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | URL PostgreSQL (géré par Replit) |
+| `JWT_SECRET` | Clé secrète JWT (96 caractères hex) |
+| `ADMIN_EMAIL` | Email de connexion administrateur |
+| `ADMIN_PASSWORD` | Mot de passe administrateur |
+
+## Lancement (développement)
 
 ```bash
-# Frontend
+# Dépendances
 npm install
+cd backend && npm install && cd ..
 
-# Backend
-cd backend
-npm install
-cd ..
-```
+# Terminal 1 — Backend (port 3001)
+node backend/server.js
 
-## 🎯 Lancement de l'application
-
-### Terminal 1 - Backend
-```bash
-cd backend
-npm start
-```
-Le serveur démarre sur http://localhost:3001
-
-### Terminal 2 - Frontend
-```bash
+# Terminal 2 — Frontend (port 5000)
 npm run dev
 ```
-L'application démarre sur http://localhost:5173
 
-## 📱 Utilisation
+## Build production
 
-### Accès aux interfaces
+```bash
+npm install && cd backend && npm install && cd .. && npm run build
+node backend/server.js   # sert les fichiers statiques + API sur le même port
+```
 
-1. **Page d'accueil** : http://localhost:5173/
-   - Choisissez entre l'interface Médecin ou Patient
+## Technologies
 
-2. **Interface Médecin** : http://localhost:5173/medecin
-   - Ajoutez des patients avec leurs informations
-   - Le système génère automatiquement un code à 4 chiffres
-   - Gérez la file d'attente (appeler, terminer, annuler)
-   - Un seul patient peut être en consultation à la fois
-
-3. **Interface Patient** : http://localhost:5173/patient
-   - Saisissez le code à 4 chiffres reçu
-   - Entrez votre numéro de téléphone
-   - Suivez votre position en temps réel
-
-### Fonctionnalités principales
-
-**Interface Médecin :**
-- ✅ Ajout de patients (nom, prénom, âge, téléphone, motif)
-- ✅ Génération automatique de code unique à 4 chiffres
-- ✅ Visualisation de la file d'attente
-- ✅ Appel du patient suivant (avec blocage si consultation en cours)
-- ✅ Gestion des consultations (terminer, remettre en attente, annuler)
-- ✅ Historique des consultations du jour
-- ✅ Statistiques en temps réel
-
-**Interface Patient :**
-- ✅ Vérification par code + téléphone
-- ✅ Position dans la file
-- ✅ Temps d'attente estimé
-- ✅ Notifications de statut (en attente, en consultation, terminé, annulé)
-- ✅ Confidentialité : aucune info des autres patients visible
-
-## 🔒 Sécurité
-
-- Vérification par code à 4 chiffres ET numéro de téléphone
-- Les patients ne voient que leur propre position
-- Données stockées en base PostgreSQL sécurisée
-
-## 🛠️ Technologies utilisées
-
-- **Frontend** : React, TypeScript, Tailwind CSS, React Router, Axios
-- **Backend** : Node.js, Express
-- **Base de données** : PostgreSQL
-- **UI Icons** : Lucide React
-
-## 📝 Notes
-
-- Les données sont persistées dans PostgreSQL
-- Rafraîchissement automatique toutes les 5 secondes sur l'interface médecin
-- Les consultations du jour sont automatiquement filtrées par date
+- **Frontend** : React 19, TypeScript, Vite, Tailwind CSS 4, React Router v7, Axios, qrcode.react
+- **Backend** : Node.js, Express 4, jsonwebtoken, bcryptjs
+- **Base de données** : PostgreSQL (Replit managed)
