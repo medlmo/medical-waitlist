@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
 const { initDB } = require('./db');
 const patientRoutes = require('./routes/patients');
 const authRoutes = require('./routes/auth');
@@ -34,6 +35,26 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+const verifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Trop de tentatives. Veuillez réessayer dans 15 minutes.' },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Trop de tentatives de connexion. Veuillez réessayer dans 15 minutes.' },
+});
+
+app.use('/api/patients/verifier', verifyLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/admin/login', authLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
