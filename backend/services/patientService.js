@@ -58,16 +58,14 @@ const getDashboard = async (cabinetCode) => {
 };
 
 const callNextPatient = async (cabinetCode) => {
-  const patientInConsultation = await repository.getPatientInConsultation(cabinetCode);
-  if (patientInConsultation) {
+  const result = await repository.callNextPatientAtomic(cabinetCode);
+  if (result.error === 'consultation_active') {
     throw new AppError('Un patient est déjà en consultation', 400);
   }
-  const nextPatient = await repository.getNextWaitingPatient(cabinetCode);
-  if (!nextPatient) {
+  if (result.error === 'no_waiting') {
     throw new AppError('Aucun patient en attente', 404);
   }
-  await repository.updatePatientStatus(nextPatient.id, 'en_consultation', cabinetCode);
-  return nextPatient;
+  return result.patient;
 };
 
 const updateStatus = async (id, statut, cabinetCode) => {

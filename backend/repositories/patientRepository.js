@@ -73,6 +73,60 @@ const getNextWaitingPatient = async (cabinetCode) => {
   return result.rows[0] || null;
 };
 
+const callNextPatientAtomic = async (cabinetCode) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const consultationCheck = await client.query(
+      `SELECT p.id FROM patients p
+       JOIN medecins m ON p.medecin_id = m.id
+       WHERE m.cabinet_code = $1
+       AND p.statut = 'en_consultation'
+       AND DATE(p.heure_arrivee) = CURRENT_DATE
+       FOR UPDATE`,
+      [cabinetCode]
+    );
+
+    if (consultationCheck.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return { error: 'consultation_active' };
+    }
+
+    const nextResult = await client.query(
+      `SELECT p.* FROM patients p
+       JOIN medecins m ON p.medecin_id = m.id
+       WHERE m.cabinet_code = $1
+       AND p.statut = 'en_attente'
+       AND DATE(p.heure_arrivee) = CURRENT_DATE
+       ORDER BY p.heure_arrivee ASC
+       LIMIT 1
+       FOR UPDATE SKIP LOCKED`,
+      [cabinetCode]
+    );
+
+    if (nextResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return { error: 'no_waiting' };
+    }
+
+    const updated = await client.query(
+      `UPDATE patients SET statut = 'en_consultation', heure_appel = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [nextResult.rows[0].id]
+    );
+
+    await client.query('COMMIT');
+    return { patient: updated.rows[0] };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
 const updatePatientStatus = async (id, statut, cabinetCode) => {
   let setClause;
   if (statut === 'en_consultation') {
@@ -181,6 +235,7 @@ module.exports = {
   getHistoryForToday,
   getPatientInConsultation,
   getNextWaitingPatient,
+  callNextPatientAtomic,
   updatePatientStatus,
   findPatientForVerification,
   countWaitingBefore,
