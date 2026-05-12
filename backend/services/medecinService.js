@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const repository = require('../repositories/medecinRepository');
 const { AppError } = require('../errors');
+const { validate, schemas } = require('../validation');
 
 const JWT_SECRET = () => process.env.JWT_SECRET || 'fallback-secret-change-me';
 const JWT_EXPIRES = '7d';
@@ -18,19 +19,9 @@ const generateCabinetCode = async () => {
   return code;
 };
 
-const register = async ({ email, password, nom, prenom, nom_cabinet, role, cabinet_code }) => {
-  if (!email || !password || !nom || !prenom) {
-    throw new AppError('Tous les champs sont requis', 400);
-  }
-  if (password.length < 6) {
-    throw new AppError('Le mot de passe doit contenir au moins 6 caractères', 400);
-  }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    throw new AppError('Email invalide', 400);
-  }
-
-  const userRole = role && ALLOWED_ROLES.includes(role) ? role : 'assistante';
+const register = async (rawPayload) => {
+  const { email, password, nom, prenom, nom_cabinet, role, cabinet_code } = validate(schemas.register, rawPayload);
+  const userRole = role ?? 'assistante';
 
   if (userRole === 'medecin' && !nom_cabinet) {
     throw new AppError('Le nom du cabinet est requis pour un médecin', 400);
@@ -77,11 +68,8 @@ const register = async ({ email, password, nom, prenom, nom_cabinet, role, cabin
   return { medecin, token };
 };
 
-const login = async ({ email, password }) => {
-  if (!email || !password) {
-    throw new AppError('Email et mot de passe requis', 400);
-  }
-
+const login = async (rawPayload) => {
+  const { email, password } = validate(schemas.login, rawPayload);
   const medecin = await repository.findByEmail(email.toLowerCase());
   if (!medecin) {
     throw new AppError('Email ou mot de passe incorrect', 401);

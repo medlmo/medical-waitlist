@@ -5,6 +5,7 @@ const medecinService = require('../services/medecinService');
 const medecinRepository = require('../repositories/medecinRepository');
 const { requireAdmin } = require('../middleware/adminAuth');
 const { asyncHandler, AppError } = require('../errors');
+const { validate, schemas } = require('../validation');
 
 const router = express.Router();
 const JWT_SECRET = () => process.env.JWT_SECRET || 'fallback-secret-change-me';
@@ -12,8 +13,7 @@ const JWT_SECRET = () => process.env.JWT_SECRET || 'fallback-secret-change-me';
 router.post(
   '/login',
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
-    if (!email || !password) throw new AppError('Email et mot de passe requis', 400);
+    const { email, password } = validate(schemas.adminLogin, req.body);
 
     const adminEmail = process.env.ADMIN_EMAIL;
     const adminPassword = process.env.ADMIN_PASSWORD;
@@ -72,14 +72,12 @@ router.patch(
   '/medecins/:id',
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const { nom, prenom, email, nom_cabinet } = req.body;
-    if (email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) throw new AppError('Email invalide', 400);
-      const existing = await medecinRepository.findByEmail(email.toLowerCase());
+    const fields = validate(schemas.updateMedecin, req.body);
+    if (fields.email) {
+      const existing = await medecinRepository.findByEmail(fields.email.toLowerCase());
       if (existing && existing.id !== parseInt(req.params.id)) throw new AppError('Cet email est déjà utilisé', 409);
     }
-    const updated = await medecinRepository.updateMedecin(req.params.id, { nom, prenom, email, nom_cabinet });
+    const updated = await medecinRepository.updateMedecin(req.params.id, fields);
     if (!updated) throw new AppError('Compte non trouvé', 404);
     res.json({ success: true, medecin: updated });
   })
@@ -89,8 +87,7 @@ router.patch(
   '/medecins/:id/password',
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const { password } = req.body;
-    if (!password || password.length < 6) throw new AppError('Mot de passe trop court (6 caractères minimum)', 400);
+    const { password } = validate(schemas.resetPassword, req.body);
     const hash = await bcrypt.hash(password, 12);
     const updated = await medecinRepository.updatePassword(req.params.id, hash);
     if (!updated) throw new AppError('Compte non trouvé', 404);

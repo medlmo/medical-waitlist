@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
@@ -34,6 +35,7 @@ app.use(cors({
   credentials: true,
 }));
 
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
 
 const verifyLimiter = rateLimit({

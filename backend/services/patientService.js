@@ -1,9 +1,7 @@
 const repository = require('../repositories/patientRepository');
 const medecinRepository = require('../repositories/medecinRepository');
 const { AppError } = require('../errors');
-
-const ALLOWED_STATUSES = ['en_attente', 'en_consultation', 'termine', 'annule'];
-const ALLOWED_MOTIFS = ['premier_contact', 'controle'];
+const { validate, schemas } = require('../validation');
 
 const generateUniqueCode = async (cabinetCode) => {
   let code;
@@ -16,29 +14,8 @@ const generateUniqueCode = async (cabinetCode) => {
   return code;
 };
 
-const validatePatientPayload = ({ nom, prenom, age, telephone, motif }) => {
-  if (!nom || !prenom || !telephone || !motif) {
-    throw new AppError('Champs requis manquants', 400);
-  }
-  const parsedAge = Number(age);
-  if (!Number.isInteger(parsedAge) || parsedAge < 0 || parsedAge > 120) {
-    throw new AppError('Age invalide', 400);
-  }
-  const motifNormalized = motif.trim().toLowerCase();
-  if (!ALLOWED_MOTIFS.includes(motifNormalized)) {
-    throw new AppError(`Motif invalide. Valeurs acceptées : ${ALLOWED_MOTIFS.join(', ')}`, 400);
-  }
-  return {
-    nom: nom.trim(),
-    prenom: prenom.trim(),
-    age: parsedAge,
-    telephone: telephone.trim(),
-    motif: motifNormalized,
-  };
-};
-
 const addPatient = async (payload, medecinId, cabinetCode) => {
-  const safePayload = validatePatientPayload(payload);
+  const safePayload = validate(schemas.patient, payload);
   const code = await generateUniqueCode(cabinetCode);
   return repository.createPatient({ ...safePayload, code, medecinId });
 };
@@ -68,10 +45,8 @@ const callNextPatient = async (cabinetCode) => {
   return result.patient;
 };
 
-const updateStatus = async (id, statut, cabinetCode) => {
-  if (!ALLOWED_STATUSES.includes(statut)) {
-    throw new AppError('Statut invalide', 400);
-  }
+const updateStatus = async (id, rawStatut, cabinetCode) => {
+  const { statut } = validate(schemas.updateStatut, { statut: rawStatut });
   const patient = await repository.updatePatientStatus(id, statut, cabinetCode);
   if (!patient) {
     throw new AppError('Patient non trouvé', 404);
@@ -79,11 +54,8 @@ const updateStatus = async (id, statut, cabinetCode) => {
   return patient;
 };
 
-const verifyPatient = async ({ code, telephone, cabinet_code }) => {
-  if (!code || !telephone || !cabinet_code) {
-    throw new AppError('Code, téléphone et code cabinet requis', 400);
-  }
-
+const verifyPatient = async (rawPayload) => {
+  const { code, telephone, cabinet_code } = validate(schemas.verifyPatient, rawPayload);
   const cabinetCodeUpper = cabinet_code.toUpperCase();
   const medecin = await medecinRepository.findByCabinetCode(cabinetCodeUpper);
   if (!medecin) {
