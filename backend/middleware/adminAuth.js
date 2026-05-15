@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = () => process.env.JWT_SECRET || 'fallback-secret-change-me';
+const JWT_SECRET = () => {
+  const s = process.env.JWT_SECRET;
+  if (!s) throw new Error('JWT_SECRET non défini');
+  return s;
+};
 
 const requireAdmin = (req, res, next) => {
   const authHeader = req.headers['authorization'];

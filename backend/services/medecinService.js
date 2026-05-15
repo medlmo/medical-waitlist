@@ -3,10 +3,15 @@ const jwt = require('jsonwebtoken');
 const repository = require('../repositories/medecinRepository');
 const { AppError } = require('../errors');
 const { validate, schemas } = require('../validation');
+const { recordFailure, isLocked, getRemainingMinutes, resetAttempts } = require('../security/loginThrottle');
+const audit = require('../security/auditLog');
 
-const JWT_SECRET = () => process.env.JWT_SECRET || 'fallback-secret-change-me';
+const JWT_SECRET = () => {
+  const s = process.env.JWT_SECRET;
+  if (!s) throw new Error('JWT_SECRET non défini');
+  return s;
+};
 const JWT_EXPIRES = '7d';
-const ALLOWED_ROLES = ['medecin', 'assistante'];
 
 const generateCabinetCode = async () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -60,6 +65,8 @@ const register = async (rawPayload) => {
     role: userRole,
   });
 
+  audit.log('ACCOUNT_CREATED', { email: medecin.email, role: userRole, cabinet_code: resolvedCabinetCode });
+
   const token = jwt.sign(
     { id: medecin.id, email: medecin.email, cabinet_code: medecin.cabinet_code, role: medecin.role },
     JWT_SECRET(),
@@ -68,17 +75,32 @@ const register = async (rawPayload) => {
   return { medecin, token };
 };
 
-const login = async (rawPayload) => {
+const login = async (rawPayload, ip) => {
   const { email, password } = validate(schemas.login, rawPayload);
-  const medecin = await repository.findByEmail(email.toLowerCase());
+  const emailLower = email.toLowerCase();
+
+  if (isLocked(emailLower)) {
+    const minutes = getRemainingMinutes(emailLower);
+    audit.log('LOGIN_BLOCKED', { email: emailLower, ip, reason: 'compte verrouillé' });
+    throw new AppError(`Compte temporairement verrouillé. Réessayez dans ${minutes} minute(s).`, 429);
+  }
+
+  const medecin = await repository.findByEmail(emailLower);
   if (!medecin) {
+    recordFailure(emailLower);
+    audit.log('LOGIN_FAILED', { email: emailLower, ip, reason: 'email inconnu' });
     throw new AppError('Email ou mot de passe incorrect', 401);
   }
 
   const valid = await bcrypt.compare(password, medecin.password_hash);
   if (!valid) {
+    recordFailure(emailLower);
+    audit.log('LOGIN_FAILED', { email: emailLower, ip, reason: 'mot de passe incorrect' });
     throw new AppError('Email ou mot de passe incorrect', 401);
   }
+
+  resetAttempts(emailLower);
+  audit.log('LOGIN_SUCCESS', { email: emailLower, ip, role: medecin.role });
 
   const { password_hash, ...medecinSafe } = medecin;
   const token = jwt.sign(

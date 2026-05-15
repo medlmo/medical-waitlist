@@ -17,8 +17,7 @@ router.post(
 router.post(
   '/login',
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
-    const { medecin, token } = await medecinService.login({ email, password });
+    const { medecin, token } = await medecinService.login(req.body, req.ip);
     res.json({ success: true, medecin, token });
   })
 );
