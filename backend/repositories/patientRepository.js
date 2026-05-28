@@ -1,12 +1,14 @@
 const { pool } = require('../db');
 const { encryptPatientFields, decryptPatientRow } = require('../security/encryption');
 
+const CABINET_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
 const cabinetCodeToLockKey = (cabinetCode) => {
-  let hash = 5381;
+  let value = 0;
   for (let i = 0; i < cabinetCode.length; i++) {
-    hash = Math.imul(31, hash) + cabinetCode.charCodeAt(i) | 0;
+    value = value * CABINET_CODE_CHARS.length + CABINET_CODE_CHARS.indexOf(cabinetCode[i]);
   }
-  return hash;
+  return value;
 };
 
 const findByCodeToday = async (code, cabinetCode) => {
