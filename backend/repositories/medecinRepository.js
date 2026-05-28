@@ -65,7 +65,6 @@ const getCabinets = async () => {
 const deleteMedecin = async (id) => {
   const medecin = await findById(id);
   if (!medecin) return null;
-  await pool.query('DELETE FROM patients WHERE medecin_id = $1', [id]);
   const result = await pool.query(
     'DELETE FROM medecins WHERE id = $1 RETURNING id, email, nom, prenom',
     [id]
