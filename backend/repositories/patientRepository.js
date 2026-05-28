@@ -1,6 +1,14 @@
 const { pool } = require('../db');
 const { encryptPatientFields, decryptPatientRow } = require('../security/encryption');
 
+const cabinetCodeToLockKey = (cabinetCode) => {
+  let hash = 5381;
+  for (let i = 0; i < cabinetCode.length; i++) {
+    hash = Math.imul(31, hash) + cabinetCode.charCodeAt(i) | 0;
+  }
+  return hash;
+};
+
 const findByCodeToday = async (code, cabinetCode) => {
   const result = await pool.query(
     `SELECT p.id FROM patients p
@@ -11,15 +19,40 @@ const findByCodeToday = async (code, cabinetCode) => {
   return result.rows[0] || null;
 };
 
-const createPatient = async ({ nom, prenom, age, telephone, motif, code, medecinId }) => {
+const createPatient = async ({ nom, prenom, age, telephone, motif, medecinId, cabinetCode }) => {
+  const lockKey = cabinetCodeToLockKey(cabinetCode);
   const encrypted = encryptPatientFields({ nom, prenom, telephone });
-  const result = await pool.query(
-    `INSERT INTO patients (medecin_id, nom, prenom, age, telephone, motif, code, statut)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, 'en_attente')
-     RETURNING *`,
-    [medecinId, encrypted.nom, encrypted.prenom, age, encrypted.telephone, motif, code]
-  );
-  return decryptPatientRow(result.rows[0]);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1)', [lockKey]);
+
+    let code;
+    while (true) {
+      code = Math.floor(1000 + Math.random() * 9000).toString();
+      const check = await client.query(
+        `SELECT p.id FROM patients p
+         JOIN medecins m ON p.medecin_id = m.id
+         WHERE p.code = $1 AND m.cabinet_code = $2 AND DATE(p.heure_arrivee) = CURRENT_DATE`,
+        [code, cabinetCode]
+      );
+      if (check.rows.length === 0) break;
+    }
+
+    const result = await client.query(
+      `INSERT INTO patients (medecin_id, nom, prenom, age, telephone, motif, code, statut)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'en_attente')
+       RETURNING *`,
+      [medecinId, encrypted.nom, encrypted.prenom, age, encrypted.telephone, motif, code]
+    );
+    await client.query('COMMIT');
+    return decryptPatientRow(result.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 };
 
 const getPatientsForToday = async (cabinetCode) => {

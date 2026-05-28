@@ -3,21 +3,9 @@ const medecinRepository = require('../repositories/medecinRepository');
 const { AppError } = require('../errors');
 const { validate, schemas } = require('../validation');
 
-const generateUniqueCode = async (cabinetCode) => {
-  let code;
-  let exists = true;
-  while (exists) {
-    code = Math.floor(1000 + Math.random() * 9000).toString();
-    const existingPatient = await repository.findByCodeToday(code, cabinetCode);
-    exists = Boolean(existingPatient);
-  }
-  return code;
-};
-
 const addPatient = async (payload, medecinId, cabinetCode) => {
   const safePayload = validate(schemas.patient, payload);
-  const code = await generateUniqueCode(cabinetCode);
-  return repository.createPatient({ ...safePayload, code, medecinId });
+  return repository.createPatient({ ...safePayload, medecinId, cabinetCode });
 };
 
 const getDashboard = async (cabinetCode) => {

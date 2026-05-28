@@ -85,6 +85,10 @@ const initDB = async () => {
       CREATE INDEX IF NOT EXISTS idx_medecins_cabinet_code ON medecins(cabinet_code)
     `);
     await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_medecins_cabinet_code_medecin
+      ON medecins(cabinet_code) WHERE role = 'medecin'
+    `);
+    await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_patients_medecin_id ON patients(medecin_id)
     `);
     await pool.query(`

@@ -45,25 +45,46 @@ const register = async (rawPayload) => {
   let resolvedCabinetCode;
   let resolvedNomCabinet;
 
-  if (userRole === 'medecin') {
-    resolvedCabinetCode = await generateCabinetCode();
-    resolvedNomCabinet = nom_cabinet.trim();
-  } else {
+  if (userRole === 'assistante') {
     const cabinet = await repository.findByCabinetCode(cabinet_code.toUpperCase());
     if (!cabinet) throw new AppError('Code cabinet introuvable', 404);
     resolvedCabinetCode = cabinet.cabinet_code;
     resolvedNomCabinet = cabinet.nom_cabinet;
   }
 
-  const medecin = await repository.createMedecin({
-    email: email.toLowerCase(),
-    password_hash,
-    nom: nom.trim(),
-    prenom: prenom.trim(),
-    nom_cabinet: resolvedNomCabinet,
-    cabinet_code: resolvedCabinetCode,
-    role: userRole,
-  });
+  let medecin;
+  let attempts = 0;
+  while (true) {
+    if (attempts >= 10) throw new AppError('Impossible de générer un code cabinet unique', 500);
+
+    if (userRole === 'medecin') {
+      resolvedCabinetCode = await generateCabinetCode();
+      resolvedNomCabinet = nom_cabinet.trim();
+    }
+
+    try {
+      medecin = await repository.createMedecin({
+        email: email.toLowerCase(),
+        password_hash,
+        nom: nom.trim(),
+        prenom: prenom.trim(),
+        nom_cabinet: resolvedNomCabinet,
+        cabinet_code: resolvedCabinetCode,
+        role: userRole,
+      });
+      break;
+    } catch (err) {
+      if (
+        userRole === 'medecin' &&
+        err.code === '23505' &&
+        err.constraint === 'idx_medecins_cabinet_code_medecin'
+      ) {
+        attempts++;
+        continue;
+      }
+      throw err;
+    }
+  }
 
   audit.log('ACCOUNT_CREATED', { email: medecin.email, role: userRole, cabinet_code: resolvedCabinetCode });
 
