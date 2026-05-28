@@ -38,13 +38,14 @@ router.post(
       throw new AppError(`Compte admin verrouillé. Réessayez dans ${minutes} minute(s).`, 429);
     }
 
+    const hashStr = (s) => crypto.createHash('sha256').update(s).digest();
     const emailMatch = crypto.timingSafeEqual(
-      Buffer.from(email.toLowerCase()),
-      Buffer.from(adminEmail.toLowerCase())
+      hashStr(email.toLowerCase()),
+      hashStr(adminEmail.toLowerCase())
     );
     const passwordMatch = crypto.timingSafeEqual(
-      Buffer.from(password),
-      Buffer.from(adminPassword)
+      hashStr(password),
+      hashStr(adminPassword)
     );
 
     if (!emailMatch || !passwordMatch) {

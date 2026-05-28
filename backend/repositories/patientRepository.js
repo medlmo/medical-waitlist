@@ -1,4 +1,5 @@
 const { pool } = require('../db');
+const { encryptPatientFields, decryptPatientRow } = require('../security/encryption');
 
 const findByCodeToday = async (code, cabinetCode) => {
   const result = await pool.query(
@@ -11,13 +12,14 @@ const findByCodeToday = async (code, cabinetCode) => {
 };
 
 const createPatient = async ({ nom, prenom, age, telephone, motif, code, medecinId }) => {
+  const encrypted = encryptPatientFields({ nom, prenom, telephone });
   const result = await pool.query(
     `INSERT INTO patients (medecin_id, nom, prenom, age, telephone, motif, code, statut)
      VALUES ($1, $2, $3, $4, $5, $6, $7, 'en_attente')
      RETURNING *`,
-    [medecinId, nom, prenom, age, telephone, motif, code]
+    [medecinId, encrypted.nom, encrypted.prenom, age, encrypted.telephone, motif, code]
   );
-  return result.rows[0];
+  return decryptPatientRow(result.rows[0]);
 };
 
 const getPatientsForToday = async (cabinetCode) => {
@@ -30,7 +32,7 @@ const getPatientsForToday = async (cabinetCode) => {
      ORDER BY p.heure_arrivee ASC`,
     [cabinetCode]
   );
-  return result.rows;
+  return result.rows.map(decryptPatientRow);
 };
 
 const getHistoryForToday = async (cabinetCode) => {
@@ -44,7 +46,7 @@ const getHistoryForToday = async (cabinetCode) => {
      LIMIT 20`,
     [cabinetCode]
   );
-  return result.rows;
+  return result.rows.map(decryptPatientRow);
 };
 
 const getPatientInConsultation = async (cabinetCode) => {
@@ -56,7 +58,7 @@ const getPatientInConsultation = async (cabinetCode) => {
      AND DATE(p.heure_arrivee) = CURRENT_DATE`,
     [cabinetCode]
   );
-  return result.rows[0] || null;
+  return decryptPatientRow(result.rows[0] || null);
 };
 
 const getNextWaitingPatient = async (cabinetCode) => {
@@ -70,7 +72,7 @@ const getNextWaitingPatient = async (cabinetCode) => {
      LIMIT 1`,
     [cabinetCode]
   );
-  return result.rows[0] || null;
+  return decryptPatientRow(result.rows[0] || null);
 };
 
 const callNextPatientAtomic = async (cabinetCode) => {
@@ -118,7 +120,7 @@ const callNextPatientAtomic = async (cabinetCode) => {
     );
 
     await client.query('COMMIT');
-    return { patient: updated.rows[0] };
+    return { patient: decryptPatientRow(updated.rows[0]) };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -146,7 +148,7 @@ const updatePatientStatus = async (id, statut, cabinetCode) => {
      RETURNING p.*`,
     [statut, id, cabinetCode]
   );
-  return result.rows[0] || null;
+  return decryptPatientRow(result.rows[0] || null);
 };
 
 const findPatientForVerification = async ({ code, phoneDigits, phoneSuffix, cabinetCode }) => {
@@ -155,11 +157,18 @@ const findPatientForVerification = async ({ code, phoneDigits, phoneSuffix, cabi
      JOIN medecins m ON p.medecin_id = m.id
      WHERE p.code = $1
      AND m.cabinet_code = $2
-     AND (p.telephone = $3 OR p.telephone LIKE $4)
      AND DATE(p.heure_arrivee) = CURRENT_DATE`,
-    [code, cabinetCode, phoneDigits, `%${phoneSuffix}`]
+    [code, cabinetCode]
   );
-  return result.rows[0] || null;
+
+  for (const row of result.rows) {
+    const patient = decryptPatientRow(row);
+    const stored = patient.telephone ? patient.telephone.replace(/\D/g, '') : '';
+    if (stored === phoneDigits || stored.endsWith(phoneSuffix)) {
+      return patient;
+    }
+  }
+  return null;
 };
 
 const countWaitingBefore = async (heureArrivee, cabinetCode) => {
@@ -228,6 +237,13 @@ const getDailyBilan = async (cabinetCode) => {
   return result.rows[0];
 };
 
+async function deleteOldPatients() {
+  const result = await pool.query(
+    `DELETE FROM patients WHERE DATE(heure_arrivee) < CURRENT_DATE - INTERVAL '1 day'`
+  );
+  return result.rowCount;
+}
+
 module.exports = {
   findByCodeToday,
   createPatient,
@@ -244,10 +260,3 @@ module.exports = {
   getDailyBilan,
   deleteOldPatients,
 };
-
-async function deleteOldPatients() {
-  const result = await pool.query(
-    `DELETE FROM patients WHERE DATE(heure_arrivee) < CURRENT_DATE - INTERVAL '1 day'`
-  );
-  return result.rowCount;
-}

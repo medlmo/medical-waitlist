@@ -77,6 +77,11 @@ const startServer = async () => {
     console.error('[SÉCURITÉ] JWT_SECRET absent ou trop faible — démarrage refusé');
     process.exit(1);
   }
+  const encKey = process.env.ENCRYPTION_KEY;
+  if (!encKey || encKey.length !== 64 || !/^[0-9a-f]+$/i.test(encKey)) {
+    console.error('[SÉCURITÉ] ENCRYPTION_KEY absent ou invalide (doit être 64 caractères hexadécimaux) — démarrage refusé');
+    process.exit(1);
+  }
   await initDB();
   scheduleCleanup();
   app.listen(PORT, '0.0.0.0', () => {
