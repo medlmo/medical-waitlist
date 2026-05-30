@@ -1,22 +1,9 @@
 import axios from 'axios';
 
-const DOCTOR_TOKEN_KEY = 'doctor_token';
-
-export const getDoctorToken = () => localStorage.getItem(DOCTOR_TOKEN_KEY);
-export const setDoctorToken = (token: string) => localStorage.setItem(DOCTOR_TOKEN_KEY, token);
-export const clearDoctorToken = () => localStorage.removeItem(DOCTOR_TOKEN_KEY);
-
 export const apiClient = axios.create({
   baseURL: '/api',
   timeout: 10000,
-});
-
-apiClient.interceptors.request.use((config) => {
-  const token = getDoctorToken();
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
-  }
-  return config;
+  withCredentials: true,
 });
 
 export const getApiErrorMessage = (

@@ -5,21 +5,30 @@ const { requireDoctor } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post(
-  '/register',
-  asyncHandler(async (req, res) => {
-    const { email, password, nom, prenom, nom_cabinet } = req.body;
-    const { medecin, token } = await medecinService.register({ email, password, nom, prenom, nom_cabinet });
-    res.status(201).json({ success: true, medecin, token });
-  })
-);
+const DOCTOR_COOKIE = 'doctor_token';
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: 'strict',
+  secure: process.env.NODE_ENV === 'production',
+  path: '/',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
 
 router.post(
   '/login',
   asyncHandler(async (req, res) => {
     const { medecin, token } = await medecinService.login(req.body, req.ip);
-    res.json({ success: true, medecin, token });
+    res.cookie(DOCTOR_COOKIE, token, COOKIE_OPTIONS);
+    res.json({ success: true, medecin });
   })
+);
+
+router.post(
+  '/logout',
+  (req, res) => {
+    res.clearCookie(DOCTOR_COOKIE, { path: '/' });
+    res.json({ success: true });
+  }
 );
 
 router.get(

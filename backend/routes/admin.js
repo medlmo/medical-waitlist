@@ -13,6 +13,15 @@ const audit = require('../security/auditLog');
 const router = express.Router();
 const ADMIN_LOCK_KEY = '__admin__';
 
+const ADMIN_COOKIE = 'admin_token';
+const ADMIN_COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: 'strict',
+  secure: process.env.NODE_ENV === 'production',
+  path: '/',
+  maxAge: 8 * 60 * 60 * 1000,
+};
+
 const JWT_SECRET = () => {
   const s = process.env.JWT_SECRET;
   if (!s) throw new Error('JWT_SECRET non défini');
@@ -58,9 +67,15 @@ router.post(
     audit.log('ADMIN_LOGIN_SUCCESS', { ip, email: adminEmail });
 
     const token = jwt.sign({ id: 'admin', role: 'admin', email: adminEmail }, JWT_SECRET(), { expiresIn: '8h' });
-    res.json({ success: true, token, admin: { email: adminEmail } });
+    res.cookie(ADMIN_COOKIE, token, ADMIN_COOKIE_OPTIONS);
+    res.json({ success: true, admin: { email: adminEmail } });
   })
 );
+
+router.post('/logout', (req, res) => {
+  res.clearCookie(ADMIN_COOKIE, { path: '/' });
+  res.json({ success: true });
+});
 
 router.get(
   '/medecins',

@@ -9,11 +9,10 @@ const JWT_SECRET = () => {
 };
 
 const requireDoctor = asyncHandler(async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = req.cookies?.doctor_token;
+  if (!token) {
     return res.status(401).json({ success: false, error: 'Authentification requise' });
   }
-  const token = authHeader.slice(7);
   let decoded;
   try {
     decoded = jwt.verify(token, JWT_SECRET());

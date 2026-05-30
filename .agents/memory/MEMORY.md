@@ -1,0 +1,1 @@
+- [Cookie auth migration](cookie-auth.md) — JWT moved from localStorage to HttpOnly cookies; CSP enabled via Helmet.

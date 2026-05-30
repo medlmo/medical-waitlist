@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { apiClient } from './http';
 
 export interface Medecin {
@@ -59,20 +58,13 @@ export interface VerificationResult {
 }
 
 export const authApi = {
-  async register(payload: {
-    email: string;
-    password: string;
-    nom: string;
-    prenom: string;
-    nom_cabinet: string;
-  }): Promise<{ medecin: Medecin; token: string }> {
-    const response = await axios.post('/api/auth/register', payload);
+  async login(email: string, password: string): Promise<{ medecin: Medecin }> {
+    const response = await apiClient.post('/auth/login', { email, password });
     return response.data;
   },
 
-  async login(email: string, password: string): Promise<{ medecin: Medecin; token: string }> {
-    const response = await axios.post('/api/auth/login', { email, password });
-    return response.data;
+  async logout(): Promise<void> {
+    await apiClient.post('/auth/logout');
   },
 
   async getMe(): Promise<Medecin> {

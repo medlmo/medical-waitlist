@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const { initDB } = require('./db');
 const patientRoutes = require('./routes/patients');
 const authRoutes = require('./routes/auth');
@@ -35,7 +36,23 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
+}));
+app.use(cookieParser());
 app.use(express.json({ limit: '10kb' }));
 
 const verifyLimiter = rateLimit({

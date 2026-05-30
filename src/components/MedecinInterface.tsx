@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { UserPlus, Phone, Calendar, User, Trash2, CheckCircle, RotateCcw, Users, Clock, BarChart3, UserCheck, RefreshCw, AlertTriangle, X, Lock, LogOut, Copy, Check, Building2, QrCode } from 'lucide-react';
-import { getApiErrorMessage, getDoctorToken, setDoctorToken, clearDoctorToken } from '../api/http';
+import { getApiErrorMessage } from '../api/http';
 import { authApi, patientsApi, type Patient, type Stats, type Bilan, type Medecin } from '../api/patients';
 import QRCodeModal from './QRCodeModal';
 
@@ -41,7 +41,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function AuthScreen({ onAuth }: { onAuth: (medecin: Medecin, token: string) => void }) {
+function AuthScreen({ onAuth }: { onAuth: (medecin: Medecin) => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({ email: '', password: '' });
@@ -51,9 +51,8 @@ function AuthScreen({ onAuth }: { onAuth: (medecin: Medecin, token: string) => v
     setError('');
     setLoading(true);
     try {
-      const { medecin, token } = await authApi.login(form.email, form.password);
-      setDoctorToken(token);
-      onAuth(medecin, token);
+      const { medecin } = await authApi.login(form.email, form.password);
+      onAuth(medecin);
     } catch (err) {
       setError(getApiErrorMessage(err, 'Email ou mot de passe incorrect.'));
     } finally {
@@ -114,9 +113,7 @@ export default function MedecinInterface() {
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const token = getDoctorToken();
-    if (!token) return;
-    authApi.getMe().then((m) => { setMedecin(m); setAuthenticated(true); }).catch(() => { clearDoctorToken(); });
+    authApi.getMe().then((m) => { setMedecin(m); setAuthenticated(true); }).catch(() => {});
   }, []);
 
   const showFeedback = useCallback((msg: string, type: 'success' | 'error') => {
@@ -126,7 +123,7 @@ export default function MedecinInterface() {
     feedbackTimer.current = setTimeout(() => { setFeedbackMessage(''); setFeedbackType(''); }, 3500);
   }, []);
 
-  const handleAuthError = useCallback(() => { clearDoctorToken(); setAuthenticated(false); setMedecin(null); }, []);
+  const handleAuthError = useCallback(() => { authApi.logout().catch(() => {}); setAuthenticated(false); setMedecin(null); }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -167,7 +164,7 @@ export default function MedecinInterface() {
   useEffect(() => { return () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); }; }, []);
 
   if (!authenticated) {
-    return <AuthScreen onAuth={(m, t) => { setMedecin(m); setDoctorToken(t); setAuthenticated(true); }} />;
+    return <AuthScreen onAuth={(m) => { setMedecin(m); setAuthenticated(true); }} />;
   }
 
   const patientUrl = medecin ? `${window.location.origin}/patient/${medecin.cabinet_code}` : '';
@@ -220,7 +217,7 @@ export default function MedecinInterface() {
     await changerStatut(confirmation.patientId, confirmation.statut);
   };
 
-  const handleLogout = () => { clearDoctorToken(); setAuthenticated(false); setMedecin(null); };
+  const handleLogout = () => { authApi.logout().catch(() => {}); setAuthenticated(false); setMedecin(null); };
 
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const getDureeConsultation = (heureAppel: string) => Math.floor((Date.now() - new Date(heureAppel).getTime()) / 60000);

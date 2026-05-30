@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Shield, Plus, Trash2, KeyRound, LogOut, RefreshCw, Users, X, Check, Eye, EyeOff, Building2, Copy, QrCode, Pencil } from 'lucide-react';
-import { adminApi, getAdminToken, setAdminToken, clearAdminToken, type MedecinWithStats } from '../api/admin';
+import { adminApi, type MedecinWithStats } from '../api/admin';
 import { getApiErrorMessage } from '../api/http';
 import QRCodeModal from './QRCodeModal';
 
@@ -299,7 +299,7 @@ function EditModal({ medecin, onClose, onUpdated }: { medecin: MedecinWithStats;
   );
 }
 
-function AdminLogin({ onAuth }: { onAuth: (token: string) => void }) {
+function AdminLogin({ onAuth }: { onAuth: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -310,9 +310,8 @@ function AdminLogin({ onAuth }: { onAuth: (token: string) => void }) {
     setLoading(true);
     setError('');
     try {
-      const { token } = await adminApi.login(email, password);
-      setAdminToken(token);
-      onAuth(token);
+      await adminApi.login(email, password);
+      onAuth();
     } catch (err) {
       setError(getApiErrorMessage(err, 'Identifiants incorrects.'));
     } finally {
@@ -363,8 +362,9 @@ export default function AdminInterface() {
   const [qrTarget, setQrTarget] = useState<MedecinWithStats | null>(null);
 
   useEffect(() => {
-    const token = getAdminToken();
-    if (token) setAuthenticated(true);
+    adminApi.listMedecins()
+      .then(list => { setMedecins(list); setAuthenticated(true); })
+      .catch(() => {});
   }, []);
 
   const loadMedecins = useCallback(async () => {
@@ -373,7 +373,6 @@ export default function AdminInterface() {
       const list = await adminApi.listMedecins();
       setMedecins(list);
     } catch {
-      clearAdminToken();
       setAuthenticated(false);
     } finally {
       setLoading(false);
@@ -384,7 +383,7 @@ export default function AdminInterface() {
     if (authenticated) loadMedecins();
   }, [authenticated, loadMedecins]);
 
-  const handleLogout = () => { clearAdminToken(); setAuthenticated(false); setMedecins([]); };
+  const handleLogout = () => { adminApi.logout().catch(() => {}); setAuthenticated(false); setMedecins([]); };
 
   if (!authenticated) return <AdminLogin onAuth={() => setAuthenticated(true)} />;
 

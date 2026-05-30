@@ -7,11 +7,10 @@ const JWT_SECRET = () => {
 };
 
 const requireAdmin = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = req.cookies?.admin_token;
+  if (!token) {
     return res.status(401).json({ success: false, error: 'Authentification admin requise' });
   }
-  const token = authHeader.slice(7);
   try {
     const decoded = jwt.verify(token, JWT_SECRET());
     if (decoded.role !== 'admin') {

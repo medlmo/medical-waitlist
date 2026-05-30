@@ -2,18 +2,7 @@ import axios from 'axios';
 import { apiClient } from './http';
 import type { Medecin } from './patients';
 
-const ADMIN_TOKEN_KEY = 'admin_token';
-
-export const getAdminToken = () => localStorage.getItem(ADMIN_TOKEN_KEY);
-export const setAdminToken = (token: string) => localStorage.setItem(ADMIN_TOKEN_KEY, token);
-export const clearAdminToken = () => localStorage.removeItem(ADMIN_TOKEN_KEY);
-
-const adminClient = axios.create({ baseURL: '/api/admin', timeout: 10000 });
-adminClient.interceptors.request.use((config) => {
-  const token = getAdminToken();
-  if (token) config.headers['Authorization'] = `Bearer ${token}`;
-  return config;
-});
+const adminClient = axios.create({ baseURL: '/api/admin', timeout: 10000, withCredentials: true });
 
 export interface MedecinWithStats extends Medecin {
   en_attente: number;
@@ -28,8 +17,11 @@ export interface Cabinet {
 
 export const adminApi = {
   async login(email: string, password: string) {
-    const res = await axios.post('/api/admin/login', { email, password });
-    return res.data as { token: string; admin: { email: string } };
+    const res = await apiClient.post('/admin/login', { email, password });
+    return res.data as { admin: { email: string } };
+  },
+  async logout() {
+    await apiClient.post('/admin/logout');
   },
   async listMedecins() {
     const res = await adminClient.get('/medecins');
