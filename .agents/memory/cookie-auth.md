@@ -6,7 +6,8 @@ description: How JWTs are stored and verified — HttpOnly cookies replacing loc
 ## Rule
 JWTs are stored in **HttpOnly SameSite=Strict** cookies, not localStorage. Never revert to localStorage or Authorization header patterns.
 
-- `doctor_token` cookie — 7-day expiry, set on POST `/api/auth/login`, cleared on POST `/api/auth/logout`
+- `doctor_token` cookie — **15-minute** access token, set on login + refresh, cleared on logout
+- `doctor_refresh` cookie — 7-day refresh token (hash stored in `refresh_tokens` table), path `/api/auth` only; POST `/api/auth/refresh` issues a new access token
 - `admin_token` cookie — 8-hour expiry, set on POST `/api/admin/login`, cleared on POST `/api/admin/logout`
 - `backend/middleware/auth.js` reads `req.cookies.doctor_token` (cookie-parser must be loaded before routes)
 - `backend/middleware/adminAuth.js` reads `req.cookies.admin_token`

@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const repository = require('../repositories/medecinRepository');
+const refreshRepo = require('../repositories/refreshTokenRepository');
 const { AppError } = require('../errors');
 const { validate, schemas } = require('../validation');
 const { recordFailure, isLocked, getRemainingMinutes, resetAttempts } = require('../security/loginThrottle');
@@ -11,7 +13,8 @@ const JWT_SECRET = () => {
   if (!s) throw new Error('JWT_SECRET non défini');
   return s;
 };
-const JWT_EXPIRES = '7d';
+const ACCESS_EXPIRES = '15m';
+const REFRESH_DAYS = 7;
 
 const generateCabinetCode = async () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -124,12 +127,17 @@ const login = async (rawPayload, ip) => {
   audit.log('LOGIN_SUCCESS', { email: emailLower, ip, role: medecin.role });
 
   const { password_hash, ...medecinSafe } = medecin;
-  const token = jwt.sign(
+  const accessToken = jwt.sign(
     { id: medecinSafe.id, email: medecinSafe.email, cabinet_code: medecinSafe.cabinet_code, role: medecinSafe.role },
     JWT_SECRET(),
-    { expiresIn: JWT_EXPIRES }
+    { expiresIn: ACCESS_EXPIRES }
   );
-  return { medecin: medecinSafe, token };
+
+  const refreshToken = crypto.randomBytes(48).toString('hex');
+  const refreshExpiresAt = new Date(Date.now() + REFRESH_DAYS * 24 * 60 * 60 * 1000);
+  await refreshRepo.create(medecinSafe.id, refreshToken, refreshExpiresAt);
+
+  return { medecin: medecinSafe, accessToken, refreshToken };
 };
 
 const getMe = async (id) => {
@@ -138,4 +146,28 @@ const getMe = async (id) => {
   return medecin;
 };
 
-module.exports = { register, login, getMe };
+const refreshAccessToken = async (rawRefreshToken) => {
+  if (!rawRefreshToken) throw new AppError('Refresh token manquant', 401);
+  const stored = await refreshRepo.findByToken(rawRefreshToken);
+  if (!stored) throw new AppError('Refresh token invalide ou expiré', 401);
+
+  const medecin = await repository.findById(stored.medecin_id);
+  if (!medecin) {
+    await refreshRepo.revokeByToken(rawRefreshToken);
+    throw new AppError('Compte introuvable', 401);
+  }
+
+  const accessToken = jwt.sign(
+    { id: medecin.id, email: medecin.email, cabinet_code: medecin.cabinet_code, role: medecin.role },
+    JWT_SECRET(),
+    { expiresIn: ACCESS_EXPIRES }
+  );
+  return { accessToken };
+};
+
+const logout = async (rawRefreshToken, medecinId) => {
+  if (rawRefreshToken) await refreshRepo.revokeByToken(rawRefreshToken);
+  else if (medecinId) await refreshRepo.revokeAllForMedecin(medecinId);
+};
+
+module.exports = { register, login, getMe, refreshAccessToken, logout };

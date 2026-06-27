@@ -98,6 +98,20 @@ const initDB = async () => {
       CREATE INDEX IF NOT EXISTS idx_patients_heure_arrivee ON patients(heure_arrivee)
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id SERIAL PRIMARY KEY,
+        token_hash VARCHAR(64) NOT NULL UNIQUE,
+        medecin_id INTEGER REFERENCES medecins(id) ON DELETE CASCADE,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        revoked_at TIMESTAMP
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_refresh_tokens_medecin ON refresh_tokens(medecin_id)
+    `);
+
     console.log('Base de données initialisée');
   } catch (err) {
     console.error('Erreur fatale initialisation DB:', err);

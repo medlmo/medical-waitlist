@@ -1,4 +1,5 @@
 const { deleteOldPatients } = require('./repositories/patientRepository');
+const { cleanupExpired: cleanupRefreshTokens } = require('./repositories/refreshTokenRepository');
 
 function msUntilNextRun(hour = 2, minute = 0) {
   const now = new Date();
@@ -14,6 +15,12 @@ async function runCleanup() {
     console.log(`[Cleanup] ${new Date().toISOString()} — ${deleted} patient(s) supprimé(s) (données J-2 et plus)`);
   } catch (err) {
     console.error('[Cleanup] Erreur lors de la suppression des anciennes données:', err.message);
+  }
+  try {
+    const revoked = await cleanupRefreshTokens();
+    if (revoked > 0) console.log(`[Cleanup] ${revoked} refresh token(s) expirés supprimés`);
+  } catch (err) {
+    console.error('[Cleanup] Erreur nettoyage refresh tokens:', err.message);
   }
 }
 
