@@ -94,7 +94,7 @@ const register = async (rawPayload) => {
   const token = jwt.sign(
     { id: medecin.id, email: medecin.email, cabinet_code: medecin.cabinet_code, role: medecin.role },
     JWT_SECRET(),
-    { expiresIn: JWT_EXPIRES }
+    { expiresIn: ACCESS_EXPIRES }
   );
   return { medecin, token };
 };
