@@ -20,6 +20,10 @@ const requireDoctor = asyncHandler(async (req, res, next) => {
     return res.status(401).json({ success: false, error: 'Token invalide ou expiré' });
   }
 
+  if (decoded.role !== 'medecin' && decoded.role !== 'assistante') {
+    return res.status(401).json({ success: false, error: 'Token non autorisé pour cet accès' });
+  }
+
   const medecin = await medecinRepository.findById(decoded.id);
   if (!medecin) {
     return res.status(401).json({ success: false, error: 'Compte introuvable ou supprimé' });
